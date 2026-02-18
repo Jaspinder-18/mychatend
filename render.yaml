@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: simple-connect-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        fromEnvVar: MONGO_URI
+      - key: JWT_SECRET
+        fromEnvVar: JWT_SECRET
+      - key: PORT
+        value: 10000
