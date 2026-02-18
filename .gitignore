@@ -24,6 +24,4 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Android/Capacitor
-frontend/android/
-frontend/ios/
+

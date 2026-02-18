@@ -1,5 +1,11 @@
 {
   "appId": "com.mobile.quicknotes",
   "appName": "Quick Notes",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "cleartext": true,
+    "allowNavigation": [
+      "*"
+    ]
+  }
 }
