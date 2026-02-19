@@ -23,8 +23,8 @@ const NotesDisguise = ({ onUnlock }) => {
         // Remove whitespace for secret code check
         const cleanNote = note.replace(/\s/g, '');
 
-        // Check for secret codes
-        if (cleanNote === '#mychat=1809' || cleanNote === '#mypic=0404') {
+        // Check for secret code
+        if (cleanNote === '#mychat=1809') {
             onUnlock();
             return;
         }
