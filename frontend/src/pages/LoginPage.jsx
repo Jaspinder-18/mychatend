@@ -4,15 +4,48 @@ import { toast } from 'react-toastify';
 import axios from 'axios';
 import { useChatState } from '../context/ChatProvider';
 import ThemeToggle from '../components/ThemeToggle';
+import { FaCloudDownloadAlt, FaSyncAlt } from 'react-icons/fa';
 import { API_BASE_URL } from '../config';
+
+const CURRENT_VERSION = "1.0.0"; // Local version of this build
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [updateAvailable, setUpdateAvailable] = useState(false);
+    const [downloadUrl, setDownloadUrl] = useState('');
+    const [checkingUpdate, setCheckingUpdate] = useState(false);
     const navigate = useNavigate();
     const { setUser } = useChatState();
+
+    React.useEffect(() => {
+        checkUpdate();
+    }, []);
+
+    const checkUpdate = async () => {
+        try {
+            setCheckingUpdate(true);
+            const { data } = await axios.get(`${API_BASE_URL}/api/app/version`);
+            if (data.version !== CURRENT_VERSION) {
+                setUpdateAvailable(true);
+                setDownloadUrl(data.downloadUrl);
+            }
+        } catch (error) {
+            console.log("Update check failed", error);
+        } finally {
+            setCheckingUpdate(false);
+        }
+    };
+
+    const handleUpdate = () => {
+        if (downloadUrl) {
+            window.open(downloadUrl, '_blank');
+        } else {
+            toast.info("No download link found. Please contact support.");
+        }
+    };
 
     const submitHandler = async (e) => {
         e.preventDefault();
@@ -38,8 +71,25 @@ const LoginPage = () => {
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 safe-top">
             {/* Theme toggle top-right */}
-            <div className="absolute top-4 right-4 z-10">
+            {/* Theme toggle & Update btn top-right */}
+            <div className="absolute top-4 right-4 z-10 flex items-center space-x-3">
+                {updateAvailable && (
+                    <button
+                        onClick={handleUpdate}
+                        className="flex items-center space-x-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-full text-xs font-black shadow-lg animate-bounce transition-all transform active:scale-95"
+                    >
+                        <FaCloudDownloadAlt size={16} />
+                        <span>UPDATE AVAILABLE</span>
+                    </button>
+                )}
                 <ThemeToggle />
+            </div>
+
+            {/* Version Badge top-left */}
+            <div className="absolute top-4 left-4 z-10 hidden sm:block">
+                <span className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-bold text-white/50 tracking-widest border border-white/10 uppercase">
+                    Build v{CURRENT_VERSION}
+                </span>
             </div>
 
             {/* Centered card */}
