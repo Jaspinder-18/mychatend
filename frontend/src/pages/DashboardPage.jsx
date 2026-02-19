@@ -5,6 +5,7 @@ import io from 'socket.io-client';
 import { toast } from 'react-toastify';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
+import Vault from '../components/Vault';
 import { API_BASE_URL } from '../config';
 
 const ENDPOINT = API_BASE_URL;
@@ -18,6 +19,7 @@ const DashboardPage = () => {
     const [isTyping, setIsTyping] = useState(false);
     // On mobile: start showing sidebar (contact list). On desktop: sidebar always visible.
     const [showSidebar, setShowSidebar] = useState(true);
+    const [isVaultOpen, setIsVaultOpen] = useState(false);
     const [friendRequests, setFriendRequests] = useState([]);
     const [myFriends, setMyFriends] = useState([]);
     const [onlineUsers, setOnlineUsers] = useState([]);
@@ -184,6 +186,7 @@ const DashboardPage = () => {
                     getInitials={getInitials}
                     isUserOnline={isUserOnline}
                     onBack={handleBack}
+                    onOpenVault={() => setIsVaultOpen(true)}
                 />
             </div>
 
@@ -194,6 +197,9 @@ const DashboardPage = () => {
                     onClick={() => setShowSidebar(false)}
                 />
             )}
+
+            {/* Secret Vault Overlay */}
+            <Vault isOpen={isVaultOpen} onClose={() => setIsVaultOpen(false)} />
         </div>
     );
 };

@@ -16,6 +16,10 @@ const messageSchema = mongoose.Schema(
             type: String,
             required: true,
         },
+        replyTo: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Message',
+        },
         deletedBy: [
             {
                 type: mongoose.Schema.Types.ObjectId,
