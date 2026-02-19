@@ -17,8 +17,10 @@ const messageSchema = mongoose.Schema(
             required: true,
         },
         replyTo: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Message',
+            messageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
+            senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            senderName: String,
+            text: String,
         },
         deletedBy: [
             {

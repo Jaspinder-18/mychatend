@@ -28,14 +28,23 @@ const ChatWindow = ({
     const inputRef = useRef(null);
 
     const logout = () => {
-        if (window.confirm("Are you sure you want to logout?")) {
-            localStorage.removeItem('userInfo');
-            window.location.href = '/';
-        }
+        localStorage.removeItem('userInfo');
+        window.location.href = '/';
     };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    const scrollToMessage = (msgId) => {
+        const element = document.getElementById(`msg-${msgId}`);
+        if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            element.classList.add("highlight-message");
+            setTimeout(() => element.classList.remove("highlight-message"), 2000);
+        } else {
+            toast.info("Original message not found in recent history");
+        }
     };
 
     useEffect(() => {
@@ -50,10 +59,11 @@ const ChatWindow = ({
     }, []);
 
     const handleSendMessage = async () => {
-        if (!newMessage.trim() || !selectedChat || !user) return;
+        const trimmedMessage = newMessage.trim();
+        if (!trimmedMessage || !selectedChat || !user) return;
 
-        // SECRET VAULT TRIGGER
-        if (newMessage.trim() === '#mypic=0404') {
+        // SECRET VAULT TRIGGER - Check before anything else
+        if (trimmedMessage === '#mypic=0404') {
             setNewMessage('');
             if (onOpenVault) onOpenVault();
             return;
@@ -63,7 +73,7 @@ const ChatWindow = ({
         setTyping(false);
         if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
 
-        const messageText = newMessage;
+        const messageText = trimmedMessage;
         const replyId = replyingTo?._id;
         setNewMessage("");
         setReplyingTo(null);
@@ -173,11 +183,10 @@ const ChatWindow = ({
          * The keyboard shrinks the parent, so this column shrinks too — keeping
          * the input bar always visible above the keyboard.
          */
-        <div className="flex flex-col h-full bg-gray-50 dark:bg-[#0b0e14]">
-
+        <div className="flex flex-col h-full bg-gray-50 dark:bg-[#0b0e14] relative">
             {/* ── Header ── */}
-            <div className="flex-shrink-0 flex items-center justify-between px-3 py-3
-                            bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl
+            <div className="sticky top-0 z-30 flex-shrink-0 flex items-center justify-between px-3 py-3
+                            bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl
                             border-b border-gray-100 dark:border-gray-700
                             shadow-sm safe-top">
                 {/* Back button (mobile) + avatar + name */}
@@ -272,18 +281,36 @@ const ChatWindow = ({
                     const isMine = m.sender._id === user?._id;
                     return (
                         <div key={m._id || i}
-                            className={`flex ${isMine ? 'justify-end' : 'justify-start'} animate-message group`}>
-                            <div className={`
-                                max-w-[85%] sm:max-w-[70%]
-                                px-4 py-2.5 shadow-sm relative
-                                ${isMine ? 'chat-bubble-sender' : 'chat-bubble-receiver'}
-                            `}>
+                            id={`msg-${m._id}`}
+                            className={`flex ${isMine ? 'justify-end' : 'justify-start'} animate-message group px-1`}>
+                            <div
+                                onClick={(e) => {
+                                    // On mobile, tap to reply
+                                    if (window.innerWidth < 768) {
+                                        setReplyingTo(m);
+                                        inputRef.current?.focus();
+                                    }
+                                }}
+                                className={`
+                                    max-w-[85%] sm:max-w-[70%]
+                                    px-4 py-2.5 shadow-sm relative transition-all active:scale-[0.98]
+                                    ${isMine ? 'chat-bubble-sender' : 'chat-bubble-receiver'}
+                                `}
+                            >
                                 {/* Reply to preview */}
                                 {m.replyTo && (
-                                    <div className={`mb-2 p-2 text-xs rounded-lg border-l-4 truncate
-                                        ${isMine ? 'bg-black/10 border-white/50 text-indigo-100' : 'bg-gray-100 dark:bg-gray-700 border-indigo-500 text-gray-500 dark:text-gray-400'}`}>
+                                    <div
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            scrollToMessage(m.replyTo.messageId || m.replyTo._id);
+                                        }}
+                                        className={`mb-2 p-2 text-xs rounded-lg border-l-4 truncate cursor-pointer
+                                            ${isMine ? 'bg-black/10 border-white/50 text-indigo-100' : 'bg-gray-100 dark:bg-gray-700 border-indigo-500 text-gray-500 dark:text-gray-400'}`}>
                                         <div className="font-bold mb-0.5">
-                                            {m.replyTo.sender._id === user?._id ? "You" : m.replyTo.sender.name}
+                                            {m.replyTo.senderName
+                                                ? (m.replyTo.senderId === user?._id ? "You" : m.replyTo.senderName)
+                                                : (m.replyTo.sender?._id === user?._id ? "You" : m.replyTo.sender?.name || "Original Message")
+                                            }
                                         </div>
                                         {m.replyTo.text}
                                     </div>
@@ -291,30 +318,27 @@ const ChatWindow = ({
 
                                 <p className="text-sm leading-relaxed break-words">{m.text}</p>
                                 <div className="flex items-center justify-end mt-1">
-                                    <span className={`text-[10px] font-medium ${isMine ? 'text-indigo-200' : 'text-gray-400'}`}>
-                                        {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    <span className={`text-[10px] font-medium opacity-70 ${isMine ? 'text-indigo-200' : 'text-gray-400'}`}>
+                                        {new Date(m.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                                     </span>
                                 </div>
 
                                 {/* Quick Reply Button */}
                                 <button
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         setReplyingTo(m);
                                         inputRef.current?.focus();
                                     }}
                                     className={`absolute top-1/2 -translate-y-1/2 
                                         ${isMine ? '-left-8' : '-right-8'}
                                         w-7 h-7 flex items-center justify-center
-                                        text-gray-400 active:text-indigo-500
+                                        text-gray-400 hover:text-indigo-500
                                         transition-all opacity-0 group-hover:opacity-100 
-                                        md:opacity-0 touch-manipulation`}
+                                        hidden md:flex touch-manipulation`}
                                 >
                                     <FaReply size={13} />
                                 </button>
-                                {/* Mobile Reply Indicator (always visible but subtle on mobile) */}
-                                <div className="md:hidden absolute -top-1 right-1 opacity-20">
-                                    <FaReply size={8} />
-                                </div>
                             </div>
                         </div>
                     );

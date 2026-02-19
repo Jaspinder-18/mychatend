@@ -184,3 +184,22 @@ button,
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
+
+@keyframes highlight-msg {
+  0% {
+    background-color: transparent;
+  }
+
+  50% {
+    background-color: rgba(99, 102, 241, 0.3);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+.highlight-message {
+  animation: highlight-msg 2s ease-in-out;
+  border-radius: 12px;
+}

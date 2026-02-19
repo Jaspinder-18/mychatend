@@ -6,7 +6,7 @@ const User = require('../models/userModel');
 // @route   POST /api/chat
 // @access  Private
 const sendMessage = asyncHandler(async (req, res) => {
-    const { chatId, content, replyTo } = req.body; // chatId is the receiver's userId
+    const { chatId, content, replyTo } = req.body; // replyTo is now messageId
 
     if (!chatId || !content) {
         console.log("Invalid data passed into request");
@@ -21,23 +21,30 @@ const sendMessage = asyncHandler(async (req, res) => {
         return res.json({ message: 'You can only chat with friends' });
     }
 
+    let replyData = null;
+    if (replyTo) {
+        const originalMsg = await Message.findById(replyTo).populate("sender", "name");
+        if (originalMsg) {
+            replyData = {
+                messageId: originalMsg._id,
+                senderId: originalMsg.sender._id,
+                senderName: originalMsg.sender.name,
+                text: originalMsg.text.substring(0, 100), // Snapshot first 100 chars
+            };
+        }
+    }
+
     var newMessage = {
         sender: req.user._id,
         receiver: chatId,
         text: content,
-        replyTo: replyTo || null,
+        replyTo: replyData,
     };
 
     try {
         var message = await Message.create(newMessage);
         message = await message.populate("sender", "name pic");
         message = await message.populate("receiver", "name pic");
-        if (replyTo) {
-            message = await message.populate({
-                path: "replyTo",
-                populate: { path: "sender", select: "name" }
-            });
-        }
 
         res.json(message);
     } catch (error) {
@@ -59,10 +66,6 @@ const getMessages = asyncHandler(async (req, res) => {
         })
             .populate("sender", "name email")
             .populate("receiver", "name email")
-            .populate({
-                path: "replyTo",
-                populate: { path: "sender", select: "name" }
-            })
             .sort({ createdAt: 1 });
 
         // Filter out messages deleted by current user
