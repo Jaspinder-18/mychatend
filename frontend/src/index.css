@@ -167,6 +167,22 @@ button,
   animation: fade-in 0.4s ease-out forwards;
 }
 
+@keyframes bounce-slow {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2s infinite ease-in-out;
+}
+
 /* ─── Custom scrollbar for vault ───────────────────────────────── */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;

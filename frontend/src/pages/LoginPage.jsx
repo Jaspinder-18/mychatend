@@ -41,7 +41,15 @@ const LoginPage = () => {
 
     const handleUpdate = () => {
         if (downloadUrl) {
-            window.open(downloadUrl, '_blank');
+            // Force download by creating an anchor element
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.setAttribute('download', 'SimpleConnect_Update.apk');
+            link.setAttribute('target', '_blank');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast.success("Download started. Please install it once finished.");
         } else {
             toast.info("No download link found. Please contact support.");
         }
@@ -71,17 +79,8 @@ const LoginPage = () => {
     return (
         <div className="flex flex-col min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 safe-top">
             {/* Theme toggle top-right */}
-            {/* Theme toggle & Update btn top-right */}
+            {/* Theme toggle top-right */}
             <div className="absolute top-4 right-4 z-10 flex items-center space-x-3">
-                {updateAvailable && (
-                    <button
-                        onClick={handleUpdate}
-                        className="flex items-center space-x-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-full text-xs font-black shadow-lg animate-bounce transition-all transform active:scale-95"
-                    >
-                        <FaCloudDownloadAlt size={16} />
-                        <span>UPDATE AVAILABLE</span>
-                    </button>
-                )}
                 <ThemeToggle />
             </div>
 
@@ -109,8 +108,24 @@ const LoginPage = () => {
                     </div>
 
                     {/* Card */}
-                    <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl
+                    <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl
                                     rounded-3xl shadow-2xl p-6 space-y-4">
+
+                        {/* UPDATE BUTTON - Centered on top of the card */}
+                        {updateAvailable && (
+                            <div className="absolute -top-12 left-0 right-0 flex justify-center">
+                                <button
+                                    onClick={handleUpdate}
+                                    className="flex items-center space-x-2 px-6 py-3 bg-yellow-400 hover:bg-yellow-500 
+                                               text-gray-900 rounded-2xl text-[11px] font-black shadow-2xl 
+                                               animate-bounce-slow transition-all transform active:scale-95 border-2 border-white/20"
+                                >
+                                    <FaCloudDownloadAlt size={18} className="animate-pulse" />
+                                    <span>NEW UPDATE AVAILABLE — TAP TO DOWNLOAD</span>
+                                </button>
+                            </div>
+                        )}
+
                         <form onSubmit={submitHandler} className="space-y-4">
                             {/* Email */}
                             <div>
