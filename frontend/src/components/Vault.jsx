@@ -13,7 +13,9 @@ const Vault = ({ isOpen, onClose, onSendToChat }) => {
     const [media, setMedia] = useState([]);
     const [uploading, setUploading] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null); // For full screen preview
+    const [activeIndex, setActiveIndex] = useState(0);
     const fileInputRef = useRef(null);
+    const scrollRef = useRef(null);
 
     const VAULT_PASSCODE = '1809';
 
@@ -99,6 +101,29 @@ const Vault = ({ isOpen, onClose, onSendToChat }) => {
             onClose();
         } else {
             toast.info("Open a chat first to send media");
+        }
+    };
+
+    // Scroll to item when opened
+    useEffect(() => {
+        if (selectedItem && scrollRef.current) {
+            const index = media.findIndex(m => m.public_id === selectedItem.public_id);
+            setActiveIndex(index);
+            setTimeout(() => {
+                if (scrollRef.current) {
+                    scrollRef.current.scrollTo({
+                        left: index * scrollRef.current.clientWidth,
+                        behavior: 'auto'
+                    });
+                }
+            }, 50);
+        }
+    }, [selectedItem]);
+
+    const handleScroll = (e) => {
+        const index = Math.round(e.target.scrollLeft / e.target.clientWidth);
+        if (index !== activeIndex && index >= 0 && index < media.length) {
+            setActiveIndex(index);
         }
     };
 
@@ -240,45 +265,62 @@ const Vault = ({ isOpen, onClose, onSendToChat }) => {
             {/* FULL SCREEN PREVIEW MODAL */}
             {selectedItem && (
                 <div className="fixed inset-0 z-[200] flex flex-col bg-black/98 animate-fade-in touch-none">
-                    <div className="flex items-center justify-between p-4 bg-black/50 backdrop-blur-md">
+                    <div className="flex items-center justify-between p-4 bg-black/50 backdrop-blur-md z-10">
                         <button onClick={() => setSelectedItem(null)} className="text-white/60 hover:text-white p-2">
                             <FaTimes size={20} />
                         </button>
                         <div className="flex space-x-5">
                             <button
-                                onClick={() => handleSend(selectedItem)}
-                                className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 rounded-xl text-white font-bold text-sm"
+                                onClick={() => handleSend(media[activeIndex])}
+                                className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 rounded-xl text-white font-bold text-sm shadow-lg shadow-indigo-600/20 active:scale-95 transition-transform"
                             >
                                 <FaPaperPlane size={14} />
-                                <span>Send to Chat</span>
+                                <span className="hidden sm:inline">Send to Chat</span>
                             </button>
                             <button
-                                onClick={(e) => handleDelete(selectedItem.public_id, selectedItem.type, e)}
-                                className="text-red-400 hover:text-red-500"
+                                onClick={(e) => handleDelete(media[activeIndex].public_id, media[activeIndex].type, e)}
+                                className="flex items-center justify-center w-10 h-10 bg-white/5 hover:bg-red-500/20 text-red-400 hover:text-red-500 rounded-xl transition-all"
                             >
                                 <FaTrash size={18} />
                             </button>
                         </div>
                     </div>
 
-                    <div className="flex-1 flex items-center justify-center p-2 overflow-hidden">
-                        {selectedItem.type === 'video' ? (
-                            <video
-                                src={selectedItem.secure_url}
-                                controls
-                                autoPlay
-                                className="max-w-full max-h-full rounded-lg shadow-2xl"
-                            />
-                        ) : (
-                            <img
-                                src={selectedItem.secure_url}
-                                alt="preview"
-                                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl shadow-indigo-500/10"
-                            />
-                        )}
+                    <div
+                        ref={scrollRef}
+                        onScroll={handleScroll}
+                        className="flex-1 flex overflow-x-auto snap-x snap-mandatory hide-scrollbar"
+                    >
+                        {media.map((item) => (
+                            <div
+                                key={item.public_id}
+                                className="w-full h-full flex-shrink-0 flex items-center justify-center p-4 snap-center"
+                            >
+                                {item.type === 'video' ? (
+                                    <video
+                                        src={item.secure_url}
+                                        controls
+                                        className="max-w-full max-h-full rounded-2xl shadow-2xl"
+                                    />
+                                ) : (
+                                    <div className="relative group max-w-full max-h-full flex items-center justify-center">
+                                        <img
+                                            src={item.secure_url}
+                                            alt="preview"
+                                            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl shadow-indigo-500/10 pointer-events-none"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
                     </div>
 
-
+                    {/* INDEX INDICATOR */}
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10">
+                        <span className="text-white/90 text-[10px] font-black uppercase tracking-[0.2em]">
+                            {activeIndex + 1} <span className="text-white/30 mx-1">/</span> {media.length}
+                        </span>
+                    </div>
                 </div>
             )}
         </div>
