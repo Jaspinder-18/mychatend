@@ -9,6 +9,23 @@ const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 connectDB();
 
+// Cloudinary connection check
+const cloudinary = require('cloudinary').v2;
+cloudinary.config({
+    cloud_name: (process.env.CLOUDINARY_CLOUD_NAME || "").trim(),
+    api_key: (process.env.CLOUDINARY_API_KEY || "").trim(),
+    api_secret: (process.env.CLOUDINARY_API_SECRET || "").trim(),
+});
+
+(async () => {
+    try {
+        await cloudinary.api.ping();
+        console.log("Cloudinary Connection: SUCCESSFUL");
+    } catch (error) {
+        console.error("Cloudinary Connection: FAILED -", error.message);
+    }
+})();
+
 const app = express();
 
 // Allow all origins — needed for mobile devices on local network
