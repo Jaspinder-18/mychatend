@@ -47,13 +47,12 @@ const RegisterPage = () => {
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 safe-top">
-            <div className="absolute top-4 right-4 z-10">
+        <div className="app-height flex items-center justify-center bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 overflow-hidden relative">
+            <div className="absolute top-4 right-4 z-[100]">
                 <ThemeToggle />
             </div>
-
-            <div className="flex-1 flex items-center justify-center px-5 py-12">
-                <div className="w-full max-w-sm">
+            <div className="w-full h-full flex items-center justify-center px-5 py-12 overflow-y-auto hide-scrollbar">
+                <div className="w-full max-w-sm safe-top safe-bottom">
                     {/* Branding */}
                     <div className="text-center mb-8">
                         <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-2xl

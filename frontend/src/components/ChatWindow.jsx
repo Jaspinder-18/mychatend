@@ -209,7 +209,7 @@ const ChatWindow = ({
     }
 
     return (
-        <div className="flex flex-col app-height bg-gray-50 dark:bg-[#0b0e14] relative overflow-hidden">
+        <div className="flex flex-col h-full bg-gray-50 dark:bg-[#0b0e14] relative">
             {/* ── Fixed Header ── */}
             <div className="header-container flex-shrink-0 z-50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-700 shadow-sm safe-top">
                 <div className="flex items-center justify-between px-3 py-3">

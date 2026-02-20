@@ -33,15 +33,15 @@ cloudinary.config({ cloud_name, api_key, api_secret });
 
 const app = express();
 
-// Allow all origins — needed for mobile devices on local network
-app.use(cors({ origin: '*' }));
-app.use(express.json());
-
-// Request Logger
+// Request logger for debugging connectivity
 app.use((req, res, next) => {
-    console.log(`[API] ${req.method} ${req.url}`);
+    console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url} from ${req.ip}`);
     next();
 });
+
+// Allow all origins — needed for mobile devices on local network
+app.use(cors());
+app.use(express.json());
 
 app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);

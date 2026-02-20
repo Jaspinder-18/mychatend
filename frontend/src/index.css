@@ -72,12 +72,18 @@
     @apply bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-2xl rounded-tl-none border border-gray-100 dark:border-gray-700 shadow-sm;
   }
 
-  /* Full-height container that works on mobile browsers */
+  /* Consolidated Full-height container */
   .app-height {
     height: 100vh;
+    height: 100svh;
     height: 100dvh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
     overflow: hidden;
-    /* Prevent body scroll */
     display: flex;
     flex-direction: column;
   }
@@ -113,13 +119,11 @@
 /* ─── Safe Area Insets (notch / home indicator) ──────────────────── */
 /* Use a fallback of 12px and add the safe area inset for robust notch support */
 .safe-top {
-  padding-top: 12px;
-  padding-top: max(12px, env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top, 12px) !important;
 }
 
 .safe-bottom {
-  padding-bottom: 12px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom, 12px) !important;
 }
 
 /* ─── Message Animation ──────────────────────────────────────────── */
@@ -211,26 +215,6 @@ button,
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-/* Add padding to account for status bar and camera cutouts */
-.safe-top {
-  padding-top: calc(var(--safe-top) + 4px) !important;
-}
-
-.safe-bottom {
-  padding-bottom: calc(var(--safe-bottom) + 8px) !important;
-}
-
-/* Prevent layout jumping when keyboard opens on mobile */
-.app-height {
-  height: 100svh;
-  height: 100dvh;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
 }
 
 .header-container {

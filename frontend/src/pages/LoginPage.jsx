@@ -37,24 +37,19 @@ const LoginPage = () => {
             setUser(data);
             navigate("/dashboard");
         } catch (error) {
-            toast.error(error.response?.data?.message || "Login failed");
+            const msg = error.response?.data?.message || "Login failed. Check server connection.";
+            toast.error(msg);
         }
         setLoading(false);
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 safe-top">
-            {/* Theme toggle top-right */}
-            {/* Theme toggle top-right */}
-            <div className="absolute top-4 right-4 z-10 flex items-center space-x-3">
+        <div className="app-height flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 overflow-hidden relative">
+            <div className="absolute top-4 right-4 z-[100]">
                 <ThemeToggle />
             </div>
-
-
-
-            {/* Centered card */}
-            <div className="flex-1 flex items-center justify-center px-5 py-12">
-                <div className="w-full max-w-sm">
+            <div className="w-full h-full flex items-center justify-center px-5 py-12 overflow-y-auto hide-scrollbar">
+                <div className="w-full max-w-sm safe-top safe-bottom">
                     {/* Logo / branding */}
                     <div className="text-center mb-8 relative">
 
