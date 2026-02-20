@@ -2,7 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Base Reset for Mobile ─────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   ROOT CSS VARIABLES
+   --app-height is set dynamically by useVisualViewport hook.
+   Falls back to 100dvh which is good on modern browsers.
+   ══════════════════════════════════════════════════════════════════ */
+:root {
+  --app-height: 100dvh;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BASE RESET
+   ══════════════════════════════════════════════════════════════════ */
 @layer base {
 
   *,
@@ -10,50 +23,48 @@
   *::after {
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
-    /* Remove tap flash on mobile */
   }
 
   html {
-    /* Use dynamic viewport height — accounts for mobile browser chrome (address bar) */
-    height: -webkit-fill-available;
+    /* Prevents safari address bar from affecting layout */
+    height: 100%;
+    overflow: hidden;
   }
 
   body {
-    @apply bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300;
-    min-height: 100vh;
-    min-height: -webkit-fill-available;
-    /* Prevent rubber-band overscroll on iOS */
+    @apply bg-gray-50 text-gray-800 dark:bg-[#0b0e14] dark:text-gray-100 transition-colors duration-300;
+    height: 100%;
+    overflow: hidden;
     overscroll-behavior: none;
-    /* Smooth font rendering */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Prevent iOS input zoom — inputs must be at least 16px font-size */
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Prevent iOS input zoom — font-size must be >= 16px */
   input,
   textarea,
   select {
     font-size: 16px !important;
   }
-
-  /* Smooth scrolling everywhere */
-  * {
-    scroll-behavior: smooth;
-  }
 }
 
-/* ─── Component Styles ───────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   COMPONENT STYLES
+   ══════════════════════════════════════════════════════════════════ */
 @layer components {
+
+  /* ── Buttons ── */
   .btn-primary {
-    @apply px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all transform active:scale-95 shadow-lg hover:shadow-indigo-500/25
-    /* Minimum touch target size (44px) for mobile accessibility */
-    min-h-[44px] touch-manipulation;
+    @apply px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all transform active:scale-95 shadow-lg hover:shadow-indigo-500/25 min-h-[44px] touch-manipulation;
   }
 
   .input-field {
-    @apply w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 backdrop-blur-md transition-all
-    /* Minimum touch target height */
-    min-h-[48px] touch-manipulation;
+    @apply w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 backdrop-blur-md transition-all min-h-[48px] touch-manipulation;
   }
 
   .glass-morphism {
@@ -64,6 +75,7 @@
     @apply bg-white/40 dark:bg-gray-800/40 backdrop-blur-lg border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl transition-all hover:shadow-2xl hover:bg-white/50 dark:hover:bg-gray-800/50;
   }
 
+  /* ── Chat Bubbles ── */
   .chat-bubble-sender {
     @apply bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-2xl rounded-tr-none shadow-md;
   }
@@ -72,53 +84,86 @@
     @apply bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-2xl rounded-tl-none border border-gray-100 dark:border-gray-700 shadow-sm;
   }
 
-  /* Safe Area Insets (notch / home indicator) */
-  .safe-top {
-    padding-top: max(env(safe-area-inset-top), 12px);
+  /* ── Touch Items ── */
+  .touch-item {
+    @apply min-h-[56px] flex items-center touch-manipulation cursor-pointer;
   }
 
-  .safe-bottom {
-    padding-bottom: max(env(safe-area-inset-bottom), 12px);
-  }
-
-  /* Fixed Viewport Container - Prevents keyboard layout shifts */
+  /* ══════════════════════════════════════════════════════════════════
+     THE CORE APP CONTAINER
+     ══════════════════════════════════════════════════════════════════
+     
+     IMPORTANT: This is the single source of truth for the app height.
+     
+     - height: var(--app-height)  ← updated by VisualViewport hook
+       This shrinks exactly when the keyboard opens.
+     
+     - position: fixed prevents rubber-band scroll on iOS from
+       pushing the layout.
+     
+     - overflow: hidden ensures children manage their own scroll.
+  */
   .app-height {
-    height: 100vh;
-    height: 100svh;
-    height: 100dvh;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    bottom: 0;
     width: 100%;
+    height: var(--app-height);
     overflow: hidden;
-    background-color: #0b0e14;
+    display: flex;
+    /* children (sidebar + chat) sit side by side */
   }
 
-  /* Sticky Header */
+  /* ══════════════════════════════════════════════════════════════════
+     SAFE AREA HELPERS
+     
+     Use these on the HEADER and INPUT BAR, not on body.
+     The header needs padding-top for the notch.
+     The input bar needs padding-bottom for the home indicator.
+  ══════════════════════════════════════════════════════════════════ */
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     CHAT LAYOUT STRUCTURE
+     
+     The chat window itself uses a flexbox column:
+       [header]   ← sticky, never moves, includes safe-top padding
+       [messages] ← flex: 1, overflow-y: auto, scrollable
+       [input]    ← sticky bottom, includes safe-bottom padding
+     
+     This is the EXACT same layout as WhatsApp Web / Instagram DMs.
+  ══════════════════════════════════════════════════════════════════ */
+
+  /* The sticky header inside chat window */
   .header-container {
     position: sticky;
     top: 0;
     z-index: 50;
     width: 100%;
     flex-shrink: 0;
-  }
-
-  /* Touch-friendly list items */
-  .touch-item {
-    @apply min-h-[56px] flex items-center touch-manipulation cursor-pointer;
+    /* Notch padding built in */
+    padding-top: env(safe-area-inset-top, 0px);
   }
 }
 
-/* ─── Custom Scrollbar ───────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   SCROLLABLE MESSAGES AREA
+   ══════════════════════════════════════════════════════════════════ */
 .chat-scroll {
   flex: 1;
-  /* Take up all remaining space */
   overflow-y: auto;
-  /* Enable momentum scrolling on iOS */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  /* Min height 0 is CRITICAL inside a flex column —
+     without it, flex children don't shrink below their content size */
+  min-height: 0;
 }
 
 .chat-scroll::-webkit-scrollbar {
@@ -130,10 +175,13 @@
 }
 
 .chat-scroll::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 dark:bg-gray-700 rounded-full;
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 9999px;
 }
 
-/* ─── Message Animation ──────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ══════════════════════════════════════════════════════════════════ */
 @keyframes message-appear {
   from {
     opacity: 0;
@@ -150,38 +198,18 @@
   animation: message-appear 0.25s ease-out forwards;
 }
 
-/* ─── Slide-in animation for mobile sidebar ─────────────────────── */
-@keyframes slide-in {
-  from {
-    transform: translateX(-100%);
-  }
-
-  to {
-    transform: translateX(0);
-  }
-}
-
-/* ─── Prevent text selection on interactive elements ────────────── */
-button,
-.touch-item {
-  -webkit-user-select: none;
-  user-select: none;
-}
-
 @keyframes fade-in {
   from {
     opacity: 0;
-    backdrop-filter: blur(0px);
   }
 
   to {
     opacity: 1;
-    backdrop-filter: blur(24px);
   }
 }
 
 .animate-fade-in {
-  animation: fade-in 0.4s ease-out forwards;
+  animation: fade-in 0.3s ease-out forwards;
 }
 
 @keyframes bounce-slow {
@@ -200,7 +228,18 @@ button,
   animation: bounce-slow 2s infinite ease-in-out;
 }
 
-/* ─── Custom scrollbar for vault ───────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   LAYOUT HELPERS
+   ══════════════════════════════════════════════════════════════════ */
+button,
+.touch-item {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   VAULT SCROLLBAR
+   ══════════════════════════════════════════════════════════════════ */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
 }
@@ -218,13 +257,21 @@ button,
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* ── Mobile Viewport & Safe Area Fixes ── */
-:root {
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+/* ══════════════════════════════════════════════════════════════════
+   VAULT / FULLSCREEN SCROLLING
+   ══════════════════════════════════════════════════════════════════ */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
+/* ══════════════════════════════════════════════════════════════════
+   CHAT BUBBLE EXTRAS
+   ══════════════════════════════════════════════════════════════════ */
 @keyframes highlight-msg {
   0% {
     background-color: transparent;
@@ -254,7 +301,6 @@ button,
   border-left-color: #6366f1 !important;
 }
 
-/* Chat bubble image sizing */
 .chat-image-preview {
   max-width: 260px;
   max-height: 380px;
@@ -267,13 +313,4 @@ button,
 
 .chat-image-preview:active {
   transform: scale(0.98);
-}
-
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
 }

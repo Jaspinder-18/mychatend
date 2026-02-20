@@ -274,12 +274,13 @@ const getFriendRequests = asyncHandler(async (req, res) => {
 });
 
 
-// @desc    Remove Friend & Delete Vault
+// @desc    Remove Friend & Delete Vault + Chat History
 // @route   POST /api/users/remove-friend
 // @access  Private
 const removeFriend = asyncHandler(async (req, res) => {
     const { friendId } = req.body;
     const { deleteVault } = require('./vaultController');
+    const Message = require('../models/messageModel');
 
     const user = await User.findById(req.user._id);
     const friend = await User.findById(friendId);
@@ -296,14 +297,22 @@ const removeFriend = asyncHandler(async (req, res) => {
     await user.save();
     await friend.save();
 
-    // 2. Identify and Wipe Cloudinary Vault
-    // The vaultId logic must match what's in vaultController.js
+    // 2. Hard-delete ALL shared messages from MongoDB
+    await Message.deleteMany({
+        $or: [
+            { sender: user._id, receiver: friend._id },
+            { sender: friend._id, receiver: user._id }
+        ]
+    });
+    console.log(`[Chat] Deleted all messages between ${user._id} and ${friend._id}`);
+
+    // 3. Identify and Wipe Cloudinary Vault
     const vaultId = [user._id.toString(), friend._id.toString()].sort().join('_');
     const wipeResult = await deleteVault(vaultId);
 
     res.json({
-        message: 'Friend removed and shared vault wiped',
-        vaultCleanup: wipeResult.success ? 'Success' : 'Failed'
+        message: 'Friend removed, chat history deleted, and vault wiped',
+        vaultCleanup: wipeResult.success ? 'Success' : 'Failed (may not have existed)'
     });
 });
 

@@ -212,7 +212,7 @@ const ChatWindow = ({
     }
 
     return (
-        <div className="flex flex-col h-full bg-gray-50 dark:bg-[#0b0e14] relative">
+        <div className="flex flex-col h-full bg-gray-50 dark:bg-[#0b0e14]">
             {/* ── Fixed Header ── */}
             <div className="header-container flex-shrink-0 z-50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-700 shadow-sm safe-top">
                 <div className="flex items-center justify-between px-3 py-3">
@@ -257,8 +257,8 @@ const ChatWindow = ({
                 </div>
             </div>
 
-            {/* ── Messages area ── */}
-            <div className="flex-1 overflow-y-auto chat-scroll px-3 py-4 space-y-4">
+            {/* ── Messages area — flex:1 + overflow-y so it fills remaining space ── */}
+            <div className="chat-scroll px-3 py-4 space-y-4">
                 {loading && (
                     <div className="flex justify-center py-8">
                         <svg className="animate-spin h-8 w-8 text-indigo-500" fill="none" viewBox="0 0 24 24">
@@ -347,8 +347,8 @@ const ChatWindow = ({
                 <div ref={messagesEndRef} className="h-1" />
             </div>
 
-            {/* ── Input bar ── */}
-            <div className="flex-shrink-0 z-50 sticky bottom-0 safe-bottom bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-100 dark:border-gray-800">
+            {/* ── Input bar — no sticky needed, sits at bottom of fixed-height flex column ── */}
+            <div className="flex-shrink-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-100 dark:border-gray-800 safe-bottom">
                 {replyingTo && (
                     <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/10 flex items-center justify-between border-b border-amber-100 dark:border-amber-900/20">
                         <div className="flex items-center space-x-2 min-w-0">

@@ -24,6 +24,13 @@ const DashboardPage = () => {
     const [myFriends, setMyFriends] = useState([]);
     const [onlineUsers, setOnlineUsers] = useState([]);
 
+    // Fetch friends + requests immediately on login / page refresh
+    useEffect(() => {
+        if (!user) return;
+        fetchFriends();
+        fetchFriendRequests();
+    }, [user]);
+
     useEffect(() => {
         socket = io(ENDPOINT);
         if (user) {
@@ -33,9 +40,6 @@ const DashboardPage = () => {
         socket.on("typing", () => setIsTyping(true));
         socket.on("stop typing", () => setIsTyping(false));
         socket.on("online-users", (users) => setOnlineUsers(users));
-
-        fetchFriends();
-        fetchFriendRequests();
 
         return () => {
             socket.disconnect();
