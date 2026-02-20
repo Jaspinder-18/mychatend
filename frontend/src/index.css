@@ -74,14 +74,14 @@
 
   /* Safe Area Insets (notch / home indicator) */
   .safe-top {
-    padding-top: env(safe-area-inset-top, 0px);
+    padding-top: max(env(safe-area-inset-top), 12px);
   }
 
   .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: max(env(safe-area-inset-bottom), 12px);
   }
 
-  /* Fixed Viewport Container */
+  /* Fixed Viewport Container - Prevents keyboard layout shifts */
   .app-height {
     height: 100vh;
     height: 100svh;
@@ -94,8 +94,6 @@
     width: 100%;
     overflow: hidden;
     background-color: #0b0e14;
-    display: flex;
-    flex-direction: column;
   }
 
   /* Sticky Header */
