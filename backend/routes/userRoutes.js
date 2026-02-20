@@ -9,7 +9,8 @@ const {
     respondToFriendRequest,
     getFriends,
     getFriendRequests,
-    updateUserProfile
+    updateUserProfile,
+    removeFriend
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 
