@@ -7,24 +7,26 @@ const bcrypt = require('bcryptjs');
 // @route   POST /api/users
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, username } = req.body;
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !username) {
         res.status(400);
         throw new Error('Please fill all fields');
     }
 
     const userExists = await User.findOne({ email });
+    const usernameExists = await User.findOne({ username });
 
-    if (userExists) {
+    if (userExists || usernameExists) {
         res.status(400);
-        throw new Error('User already exists');
+        throw new Error('User or Username already exists');
     }
 
     const user = await User.create({
         name,
         email,
         password,
+        username,
     });
 
     if (user) {
@@ -32,6 +34,9 @@ const registerUser = asyncHandler(async (req, res) => {
             _id: user._id,
             name: user.name,
             email: user.email,
+            username: user.username,
+            vaultPassword: user.vaultPassword,
+            customCode: user.customCode,
             token: generateToken(user._id),
         });
     } else {
@@ -53,6 +58,9 @@ const authUser = asyncHandler(async (req, res) => {
             _id: user._id,
             name: user.name,
             email: user.email,
+            username: user.username,
+            vaultPassword: user.vaultPassword,
+            customCode: user.customCode,
             token: generateToken(user._id),
         });
     } else {
@@ -116,10 +124,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 const searchUsers = asyncHandler(async (req, res) => {
     const keyword = req.query.search
         ? {
-            $or: [
-                { name: { $regex: req.query.search, $options: 'i' } },
-                { email: { $regex: req.query.search, $options: 'i' } },
-            ],
+            username: { $regex: req.query.search, $options: 'i' },
         }
         : {};
 
@@ -129,6 +134,40 @@ const searchUsers = asyncHandler(async (req, res) => {
     };
     const users = await User.find(query).select('-password');
     res.send(users);
+});
+
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+const updateUserProfile = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+        user.name = req.body.name || user.name;
+        user.username = req.body.username || user.username;
+        user.email = req.body.email || user.email;
+        user.vaultPassword = req.body.vaultPassword || user.vaultPassword;
+        user.customCode = req.body.customCode || user.customCode;
+
+        if (req.body.password) {
+            user.password = req.body.password;
+        }
+
+        const updatedUser = await user.save();
+
+        res.json({
+            _id: updatedUser._id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            username: updatedUser.username,
+            vaultPassword: updatedUser.vaultPassword,
+            customCode: updatedUser.customCode,
+            token: generateToken(updatedUser._id),
+        });
+    } else {
+        res.status(404);
+        throw new Error('User not found');
+    }
 });
 
 // @desc    Send Friend Request
@@ -244,5 +283,6 @@ module.exports = {
     sendFriendRequest,
     respondToFriendRequest,
     getFriends,
-    getFriendRequests
+    getFriendRequests,
+    updateUserProfile
 };

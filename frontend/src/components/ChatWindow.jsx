@@ -62,9 +62,9 @@ const ChatWindow = ({
         const trimmedMessage = newMessage.trim();
         if (!trimmedMessage || !selectedChat || !user) return;
 
-        if (trimmedMessage === '#mypic=0404') {
+        if (trimmedMessage === `#mypic=${user.customCode || '0404'}`) {
             setNewMessage('');
-            if (onOpenVault) onOpenVault();
+            if (onOpenVault) onOpenVault(selectedChat._id);
             return;
         }
 
@@ -211,7 +211,7 @@ const ChatWindow = ({
     return (
         <div className="flex flex-col app-height bg-gray-50 dark:bg-[#0b0e14] relative overflow-hidden">
             {/* ── Fixed Header ── */}
-            <div className="header-container bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-700 shadow-sm safe-top">
+            <div className="header-container flex-shrink-0 z-50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-700 shadow-sm safe-top">
                 <div className="flex items-center justify-between px-3 py-3">
                     <div className="flex items-center space-x-3 min-w-0">
                         <button
@@ -345,7 +345,7 @@ const ChatWindow = ({
             </div>
 
             {/* ── Input bar ── */}
-            <div className="flex-shrink-0 safe-bottom bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-100 dark:border-gray-800">
+            <div className="flex-shrink-0 z-50 sticky bottom-0 safe-bottom bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-100 dark:border-gray-800">
                 {replyingTo && (
                     <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/10 flex items-center justify-between border-b border-amber-100 dark:border-amber-900/20">
                         <div className="flex items-center space-x-2 min-w-0">

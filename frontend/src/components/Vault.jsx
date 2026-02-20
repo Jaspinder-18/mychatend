@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import { useChatState } from '../context/ChatProvider';
 import { API_BASE_URL } from '../config';
 
-const Vault = ({ isOpen, onClose, onSendToChat }) => {
+const Vault = ({ isOpen, onClose, onSendToChat, recipientId }) => {
     const { user } = useChatState();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [passcode, setPasscode] = useState('');
@@ -17,22 +17,25 @@ const Vault = ({ isOpen, onClose, onSendToChat }) => {
     const fileInputRef = useRef(null);
     const scrollRef = useRef(null);
 
-    const VAULT_PASSCODE = '1809';
+    // Use dynamic vault password from user profile
+    const VAULT_PASSCODE = user?.vaultPassword || '1809';
 
     useEffect(() => {
-        if (isOpen && isAuthenticated) {
+        if (isOpen && isAuthenticated && recipientId) {
             fetchMedia();
         }
-    }, [isOpen, isAuthenticated]);
+    }, [isOpen, isAuthenticated, recipientId]);
 
     const fetchMedia = async () => {
+        if (!recipientId) return;
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`${API_BASE_URL}/api/vault`, config);
+            const { data } = await axios.get(`${API_BASE_URL}/api/vault?recipientId=${recipientId}`, config);
             setMedia(data);
         } catch (error) {
-            toast.error("Failed to load vault content");
+            const msg = error.response?.data?.message || "Failed to load vault content";
+            toast.error(msg);
         } finally {
             setLoading(false);
         }
@@ -40,14 +43,14 @@ const Vault = ({ isOpen, onClose, onSendToChat }) => {
 
     const handlePasscode = (val) => {
         const newPass = passcode + val;
-        if (newPass.length <= 4) {
+        if (newPass.length <= VAULT_PASSCODE.length) {
             setPasscode(newPass);
             if (newPass === VAULT_PASSCODE) {
                 setTimeout(() => {
                     setIsAuthenticated(true);
                     setPasscode('');
                 }, 300);
-            } else if (newPass.length === 4) {
+            } else if (newPass.length === VAULT_PASSCODE.length) {
                 setTimeout(() => {
                     setPasscode('');
                     toast.error("Wrong passcode");
@@ -59,9 +62,14 @@ const Vault = ({ isOpen, onClose, onSendToChat }) => {
     const handleUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        if (!recipientId) {
+            toast.error("Please open a chat before uploading.");
+            return;
+        }
 
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('recipientId', recipientId);
 
         try {
             setUploading(true);
@@ -69,13 +77,15 @@ const Vault = ({ isOpen, onClose, onSendToChat }) => {
                 headers: {
                     "Content-Type": "multipart/form-data",
                     Authorization: `Bearer ${user.token}`
-                }
+                },
+                params: { recipientId }
             };
             await axios.post(`${API_BASE_URL}/api/vault/upload`, formData, config);
             toast.success("Uploaded successfully!");
             fetchMedia();
         } catch (error) {
-            toast.error("Upload failed");
+            const msg = error.response?.data?.message || "Upload failed";
+            toast.error(msg);
         } finally {
             setUploading(false);
         }
@@ -145,10 +155,10 @@ const Vault = ({ isOpen, onClose, onSendToChat }) => {
                         <FaLock className="text-white text-2xl" />
                     </div>
                     <h2 className="text-xl font-bold text-white mb-2">Private Vault</h2>
-                    <p className="text-white/40 text-sm mb-8">Enter 4-digit passcode</p>
+                    <p className="text-white/40 text-sm mb-8">Enter {VAULT_PASSCODE.length}-digit passcode</p>
 
                     <div className="flex space-x-4 mb-12">
-                        {[0, 1, 2, 3].map(i => (
+                        {Array.from({ length: VAULT_PASSCODE.length }).map((_, i) => (
                             <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-white/30 transition-all duration-300 ${passcode.length > i ? 'bg-white border-white scale-125 shadow-[0_0_10px_rgba(255,255,255,0.5)]' : ''}`} />
                         ))}
                     </div>
@@ -207,7 +217,7 @@ const Vault = ({ isOpen, onClose, onSendToChat }) => {
                                 <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6">
                                     <FaCloudUploadAlt className="text-white/20 text-3xl" />
                                 </div>
-                                <p className="text-white/40 text-sm font-medium">Your vault is currently empty.</p>
+                                <p className="text-white/40 text-sm font-medium">This chat's vault is currently empty.</p>
                                 <button onClick={() => fileInputRef.current.click()} className="text-indigo-400 text-xs font-bold uppercase mt-4 hover:underline tracking-widest">Securely Upload Now</button>
                             </div>
                         ) : (
@@ -247,7 +257,7 @@ const Vault = ({ isOpen, onClose, onSendToChat }) => {
                                                 </button>
                                                 <button
                                                     onClick={(e) => handleDelete(item.public_id, item.type, e)}
-                                                    className="w-8 h-8 bg-red-500/80 hover:bg-red-500 text-white rounded-lg flex items-center justify-center transition-colors"
+                                                    className="w-8 h-8 bg-red-500/80 hover:bg-red-50 text-white rounded-lg flex items-center justify-center transition-colors"
                                                     title="Delete"
                                                 >
                                                     <FaTrash size={12} />
@@ -300,6 +310,8 @@ const Vault = ({ isOpen, onClose, onSendToChat }) => {
                                     <video
                                         src={item.secure_url}
                                         controls
+                                        controlsList="nodownload"
+                                        onContextMenu={(e) => e.preventDefault()}
                                         className="max-w-full max-h-full rounded-2xl shadow-2xl"
                                     />
                                 ) : (

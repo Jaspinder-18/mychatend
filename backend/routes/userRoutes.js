@@ -8,7 +8,8 @@ const {
     sendFriendRequest,
     respondToFriendRequest,
     getFriends,
-    getFriendRequests
+    getFriendRequests,
+    updateUserProfile
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -23,6 +24,7 @@ router.post('/friend-request', protect, sendFriendRequest);
 router.post('/friend-request/respond', protect, respondToFriendRequest);
 router.get('/friends', protect, getFriends);
 router.get('/friend-requests', protect, getFriendRequests);
+router.route('/profile').put(protect, updateUserProfile);
 router.get('/search', protect, searchUsers);
 
 module.exports = router;

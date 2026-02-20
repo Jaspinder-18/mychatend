@@ -8,6 +8,7 @@ import { API_BASE_URL } from '../config';
 
 const RegisterPage = () => {
     const [name, setName] = useState('');
+    const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confPassword, setConfPassword] = useState('');
@@ -18,7 +19,7 @@ const RegisterPage = () => {
 
     const submitHandler = async (e) => {
         e.preventDefault();
-        if (!name || !email || !password || !confPassword) {
+        if (!name || !username || !email || !password || !confPassword) {
             toast.error("Please fill all the fields");
             return;
         }
@@ -32,7 +33,7 @@ const RegisterPage = () => {
         }
         setLoading(true);
         try {
-            const { data } = await axios.post(`${API_BASE_URL}/api/users`, { name, email, password }, {
+            const { data } = await axios.post(`${API_BASE_URL}/api/users`, { name, username, email, password }, {
                 headers: { "Content-type": "application/json" }
             });
             toast.success("Account created! Welcome 🎉");
@@ -79,11 +80,27 @@ const RegisterPage = () => {
                                     id="reg-name"
                                     type="text"
                                     inputMode="text"
-                                    autoComplete="name"
                                     placeholder="Your name"
                                     className="input-field"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            {/* Username (Personal ID) */}
+                            <div>
+                                <label htmlFor="reg-id" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                    Personal ID (Username)
+                                </label>
+                                <input
+                                    id="reg-id"
+                                    type="text"
+                                    inputMode="text"
+                                    placeholder="Unique ID e.g. king123"
+                                    className="input-field"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value.toLowerCase().trim())}
                                     required
                                 />
                             </div>

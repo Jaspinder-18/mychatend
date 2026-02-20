@@ -6,6 +6,8 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { API_BASE_URL } from '../config';
 
+import ProfileModal from './ProfileModal';
+
 const Sidebar = ({
     myFriends,
     friendRequests,
@@ -23,6 +25,7 @@ const Sidebar = ({
     const [search, setSearch] = useState("");
     const [searchResult, setSearchResult] = useState([]);
     const [searching, setSearching] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     const handleSearch = async (query) => {
         setSearch(query);
@@ -96,13 +99,11 @@ const Sidebar = ({
     };
 
     return (
-        /*
-         * h-full fills the parent (which is app-height = 100dvh).
-         * flex flex-col so header + content + (optional bottom nav) stack vertically.
-         */
         <div className="flex flex-col h-full bg-white dark:bg-gray-900
                         border-r border-gray-100 dark:border-gray-800
                         shadow-xl overflow-hidden">
+
+            <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
 
             {/* ── Header: avatar + name + actions ── */}
             <div className="flex-shrink-0 flex items-center justify-between
@@ -110,7 +111,10 @@ const Sidebar = ({
                             bg-white/80 dark:bg-gray-900/80 backdrop-blur-md
                             border-b border-gray-100 dark:border-gray-800">
                 {/* User info */}
-                <div className="flex items-center space-x-3 min-w-0">
+                <div
+                    onClick={() => setIsProfileOpen(true)}
+                    className="flex items-center space-x-3 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
+                >
                     <div className="relative flex-shrink-0">
                         <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600
                                         flex items-center justify-center text-white font-bold text-base

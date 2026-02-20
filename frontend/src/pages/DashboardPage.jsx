@@ -232,6 +232,7 @@ const DashboardPage = () => {
                 isOpen={isVaultOpen}
                 onClose={() => setIsVaultOpen(false)}
                 onSendToChat={handleSendVaultMedia}
+                recipientId={selectedChat?._id}
             />
         </div>
     );
