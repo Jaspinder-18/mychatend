@@ -5,8 +5,8 @@ import { useChatState } from '../context/ChatProvider';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { API_BASE_URL } from '../config';
-
 import ProfileModal from './ProfileModal';
+import ConfirmModal from './ConfirmModal';
 
 const Sidebar = ({
     myFriends,
@@ -26,6 +26,7 @@ const Sidebar = ({
     const [searchResult, setSearchResult] = useState([]);
     const [searching, setSearching] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [removePending, setRemovePending] = useState(null); // { id, name }
 
     const handleSearch = async (query) => {
         setSearch(query);
@@ -67,11 +68,16 @@ const Sidebar = ({
         }
     };
 
-    const handleRemoveFriend = async (friendId, friendName, e) => {
+    const handleRemoveFriend = (friendId, friendName, e) => {
         e?.stopPropagation();
-        const confirmResult = window.confirm(`Are you sure you want to remove ${friendName}? \n\n⚠️ WARNING: This will PERMANENTLY delete all shared photos and videos in your private vault.`);
+        // Open the custom themed confirm modal instead of window.confirm
+        setRemovePending({ id: friendId, name: friendName });
+    };
 
-        if (!confirmResult) return;
+    const confirmRemoveFriend = async () => {
+        if (!removePending) return;
+        const friendId = removePending.id;
+        setRemovePending(null);
 
         try {
             const config = {
@@ -83,11 +89,9 @@ const Sidebar = ({
             await axios.post(`${API_BASE_URL}/api/users/remove-friend`, { friendId }, config);
             toast.success("Friend removed and vault wiped.");
 
-            // Clear current chat if it's the one we removed
             if (selectedChat?._id === friendId) {
                 setSelectedChat(null);
             }
-
             fetchFriends();
         } catch (error) {
             toast.error(error.response?.data?.message || "Error removing friend");
@@ -132,11 +136,22 @@ const Sidebar = ({
 
             <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
 
+            <ConfirmModal
+                isOpen={!!removePending}
+                title={`Remove ${removePending?.name}?`}
+                message={`You will no longer be friends. All shared chat messages and vault media will be permanently deleted.`}
+                confirmText="Remove & Delete"
+                danger={true}
+                onConfirm={confirmRemoveFriend}
+                onCancel={() => setRemovePending(null)}
+            />
+
             {/* ── Header: avatar + name + actions ── */}
-            <div className="flex-shrink-0 flex items-center justify-between
-                            px-4 py-3 safe-top
+            <div className="header-container flex items-center justify-between
+                            px-4 py-3
                             bg-white/80 dark:bg-gray-900/80 backdrop-blur-md
                             border-b border-gray-100 dark:border-gray-800">
+
                 {/* User info */}
                 <div
                     onClick={() => setIsProfileOpen(true)}

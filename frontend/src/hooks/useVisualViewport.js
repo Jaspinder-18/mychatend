@@ -1,45 +1,43 @@
 /**
- * useVisualViewport
- * -----------------
- * Listens to the VisualViewport API so the app height tracks the
- * *visible* area (i.e. shrinks when the on-screen keyboard opens).
+ * useVisualViewport — Production-grade keyboard + notch handler
  *
- * We write the height into a CSS custom property: --app-height
- * That variable is used INSTEAD of 100vh/100dvh everywhere.
+ * Writes two CSS variables into :root:
+ *   --app-height : the VISIBLE viewport height (shrinks when keyboard opens)
+ *   --app-top    : the offset from top (non-zero if viewport scrolls up on Android)
  *
- * Why this works:
- *   - 100vh on iOS Safari = full screen (doesn't shrink for keyboard)
- *   - 100dvh = better but still jumpy on some Android browsers
- *   - visualViewport.height = exact visible area, updates instantly
+ * This makes the app behave exactly like WhatsApp / Instagram:
+ *   - Header stays pinned at the top (uses --app-top to compensate)
+ *   - Input follows the keyboard up (container shrinks via --app-height)
+ *   - Zero layout jump or white gap
  */
 import { useEffect } from 'react';
 
 const useVisualViewport = () => {
     useEffect(() => {
-        const setHeight = () => {
-            const vh = window.visualViewport
-                ? window.visualViewport.height
-                : window.innerHeight;
+        const update = () => {
+            const vv = window.visualViewport;
+            const height = vv ? vv.height : window.innerHeight;
+            const offsetTop = vv ? vv.offsetTop : 0;
 
-            // Set on :root so any elem can use var(--app-height)
-            document.documentElement.style.setProperty('--app-height', `${vh}px`);
+            document.documentElement.style.setProperty('--app-height', `${height}px`);
+            document.documentElement.style.setProperty('--app-top', `${offsetTop}px`);
         };
 
-        // Run immediately
-        setHeight();
+        update();
 
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', setHeight);
-            window.visualViewport.addEventListener('scroll', setHeight);
+        const vv = window.visualViewport;
+        if (vv) {
+            vv.addEventListener('resize', update, { passive: true });
+            vv.addEventListener('scroll', update, { passive: true });
         }
-        window.addEventListener('resize', setHeight);
+        window.addEventListener('resize', update, { passive: true });
 
         return () => {
-            if (window.visualViewport) {
-                window.visualViewport.removeEventListener('resize', setHeight);
-                window.visualViewport.removeEventListener('scroll', setHeight);
+            if (vv) {
+                vv.removeEventListener('resize', update);
+                vv.removeEventListener('scroll', update);
             }
-            window.removeEventListener('resize', setHeight);
+            window.removeEventListener('resize', update);
         };
     }, []);
 };

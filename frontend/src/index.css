@@ -9,6 +9,7 @@
    ══════════════════════════════════════════════════════════════════ */
 :root {
   --app-height: 100dvh;
+  --app-top: 0px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -89,67 +90,43 @@
     @apply min-h-[56px] flex items-center touch-manipulation cursor-pointer;
   }
 
-  /* ══════════════════════════════════════════════════════════════════
-     THE CORE APP CONTAINER
-     ══════════════════════════════════════════════════════════════════
-     
-     IMPORTANT: This is the single source of truth for the app height.
-     
-     - height: var(--app-height)  ← updated by VisualViewport hook
-       This shrinks exactly when the keyboard opens.
-     
-     - position: fixed prevents rubber-band scroll on iOS from
-       pushing the layout.
-     
-     - overflow: hidden ensures children manage their own scroll.
-  */
+  /*
+   * THE CORE APP SHELL
+   * - top: var(--app-top) compensates for Android viewport offset when keyboard opens
+   * - height: var(--app-height) shrinks when keyboard opens
+   * - position: fixed so iOS rubber-band never moves it
+   */
   .app-height {
     position: fixed;
-    top: 0;
+    top: var(--app-top);
     left: 0;
     right: 0;
     width: 100%;
     height: var(--app-height);
     overflow: hidden;
     display: flex;
-    /* children (sidebar + chat) sit side by side */
   }
 
-  /* ══════════════════════════════════════════════════════════════════
-     SAFE AREA HELPERS
-     
-     Use these on the HEADER and INPUT BAR, not on body.
-     The header needs padding-top for the notch.
-     The input bar needs padding-bottom for the home indicator.
-  ══════════════════════════════════════════════════════════════════ */
+  /*
+   * SAFE-AREA HELPERS
+   * .safe-top   → header / notch area. Uses max() so punch-hole cameras
+   *               (which often report 0px) still get at least 8px breathing room.
+   * .safe-bottom → home indicator on iPhones etc.
+   */
   .safe-top {
-    padding-top: env(safe-area-inset-top, 0px);
+    padding-top: max(env(safe-area-inset-top, 0px), 8px);
   }
 
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* ══════════════════════════════════════════════════════════════════
-     CHAT LAYOUT STRUCTURE
-     
-     The chat window itself uses a flexbox column:
-       [header]   ← sticky, never moves, includes safe-top padding
-       [messages] ← flex: 1, overflow-y: auto, scrollable
-       [input]    ← sticky bottom, includes safe-bottom padding
-     
-     This is the EXACT same layout as WhatsApp Web / Instagram DMs.
-  ══════════════════════════════════════════════════════════════════ */
-
-  /* The sticky header inside chat window */
+  /* Header bar — flex-shrink:0 keeps it at top of the flex column. safe-area built in. */
   .header-container {
-    position: sticky;
-    top: 0;
+    flex-shrink: 0;
     z-index: 50;
     width: 100%;
-    flex-shrink: 0;
-    /* Notch padding built in */
-    padding-top: env(safe-area-inset-top, 0px);
+    padding-top: max(env(safe-area-inset-top, 0px), 8px);
   }
 }
 

@@ -161,26 +161,17 @@ const DashboardPage = () => {
     };
 
     return (
-        /*
-         * app-height = 100dvh (dynamic viewport height).
-         * This is the critical fix for mobile: 100dvh shrinks when the
-         * on-screen keyboard appears, so the input bar stays visible.
-         */
-        <div className="flex app-height overflow-hidden bg-white dark:bg-[#0b0e14] font-sans">
+        <div className="app-height flex bg-white dark:bg-[#0b0e14] font-sans">
 
-            {/*
-              * SIDEBAR
-              * Mobile:  fixed, full-width panel that slides in/out
-              * Desktop: static left column, always visible
+            {/* ── SIDEBAR ──
+              * Mobile: full width, toggled visible/hidden
+              * Desktop: fixed-width left column
               */}
-            <div
-                className={`
-                    fixed md:static inset-y-0 left-0 z-50
-                    w-full sm:w-[85%] md:w-80 lg:w-[350px]
-                    transform transition-transform duration-300 ease-in-out
-                    ${showSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-                `}
-            >
+            <div className={`
+                h-full flex flex-col
+                w-full md:w-80 lg:w-[350px] md:flex-shrink-0
+                ${showSidebar ? 'flex' : 'hidden md:flex'}
+            `}>
                 <Sidebar
                     myFriends={myFriends}
                     friendRequests={friendRequests}
@@ -195,18 +186,14 @@ const DashboardPage = () => {
                 />
             </div>
 
-            {/*
-              * CHAT WINDOW
-              * Mobile:  shown when a chat is selected (sidebar hidden)
-              * Desktop: always shown as flex column next to sidebar
+            {/* ── CHAT WINDOW ──
+              * Mobile: full width, shown when a chat is opened
+              * Desktop: takes remaining flex space
               */}
-            <div
-                className={`
-                    flex-1 flex flex-col min-w-0
-                    transition-all duration-300
-                    ${showSidebar ? 'hidden md:flex' : 'flex'}
-                `}
-            >
+            <div className={`
+                flex-1 flex flex-col min-w-0 h-full
+                ${showSidebar ? 'hidden md:flex' : 'flex'}
+            `}>
                 <ChatWindow
                     messages={messages}
                     loading={loading}
@@ -223,15 +210,7 @@ const DashboardPage = () => {
                 />
             </div>
 
-            {/* Dark overlay behind sidebar on mobile */}
-            {showSidebar && (
-                <div
-                    className="fixed inset-0 bg-black/50 z-40 md:hidden"
-                    onClick={() => setShowSidebar(false)}
-                />
-            )}
-
-            {/* Secret Vault Overlay */}
+            {/* Secret Vault */}
             <Vault
                 isOpen={isVaultOpen}
                 onClose={() => setIsVaultOpen(false)}
@@ -240,6 +219,7 @@ const DashboardPage = () => {
             />
         </div>
     );
+
 };
 
 export default DashboardPage;
