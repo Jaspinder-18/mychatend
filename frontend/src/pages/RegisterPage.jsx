@@ -41,7 +41,8 @@ const RegisterPage = () => {
             toast.success(data.message || "Account created! Please verify your email.");
             navigate("/");
         } catch (error) {
-            toast.error(error.response?.data?.message || "Registration failed");
+            const errorMsg = error.response?.data?.message || error.message || "Registration failed";
+            toast.error(errorMsg);
         }
         setLoading(false);
     };
