@@ -57,6 +57,16 @@ const ensureVaultFolderExists = async (vaultId) => {
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+const getVaultId = async (user1, user2) => {
+    const friendship = await Friendship.findOne({
+        $or: [
+            { user1, user2 },
+            { user1: user2, user2: user1 }
+        ]
+    });
+    return friendship ? friendship.vault_id.toString() : null;
+};
+
 // @desc    Upload media
 // @route   POST /api/vault/upload
 // @access  Private
@@ -72,8 +82,13 @@ const uploadMedia = asyncHandler(async (req, res) => {
         throw new Error("Recipient ID is required");
     }
 
-    const vaultId = getVaultId(req.user._id.toString(), recipientId);
-    await ensureVaultFolderExists(vaultId); // Ensure folder exists at trigger/upload time
+    const vaultId = await getVaultId(req.user._id, recipientId);
+    if (!vaultId) {
+        res.status(404);
+        throw new Error("Vault connection not established");
+    }
+
+    await ensureVaultFolderExists(vaultId);
     const isVideo = req.file.mimetype.startsWith('video');
 
     // We wrap the buffer upload in a promise
@@ -223,6 +238,30 @@ const deleteVaultMedia = asyncHandler(async (req, res) => {
     }
 });
 
+// @desc    Get all media in a vault
+// @route   GET /api/vault/media?recipientId=...
+// @access  Private
+const getVaultMedia = asyncHandler(async (req, res) => {
+    const { recipientId } = req.query;
+    const vaultId = await getVaultId(req.user._id, recipientId);
+
+    if (!vaultId) {
+        res.status(404);
+        throw new Error("Vault not found");
+    }
+
+    try {
+        const { resources } = await cloudinary.api.resources({
+            type: 'upload',
+            prefix: `secret_vault/chat_vaults/${vaultId}/`,
+            max_results: 100
+        });
+        res.json(resources);
+    } catch (error) {
+        res.status(500).json({ message: "Cloudinary fetch failed", error: error.message });
+    }
+});
+
 // @desc    Delete entire vault (used when unfriending)
 // @route   INTERNAL (called by userController)
 const deleteVault = async (vaultId) => {
@@ -247,6 +286,10 @@ const deleteVault = async (vaultId) => {
 };
 
 module.exports = {
+    getVaultDetails,
+    reportFailedAttempt,
+    resetAttempts,
+    updateVaultKey,
     getVaultMedia,
     deleteVaultMedia,
     uploadMedia,
