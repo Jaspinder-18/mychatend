@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Shield, Mail, Lock, LogIn, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Shield, Mail, Lock, LogIn, ArrowRight, Eye, EyeOff, Zap } from 'lucide-react';
 import { useChatState } from '../context/ChatProvider';
 import { API_BASE_URL } from '../config';
 
