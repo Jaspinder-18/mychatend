@@ -1,9 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaArrowLeft, FaTrash, FaPaperPlane, FaSignOutAlt, FaReply, FaTimes, FaPlay, FaPlayCircle } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    ChevronLeft, Send, Trash2, Shield, Zap, Clock,
+    MoreVertical, Info, Reply, X, Image as ImageIcon
+} from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useChatState } from '../context/ChatProvider';
 import { API_BASE_URL } from '../config';
+import { encryptMessage, decryptMessage } from '../services/encryptionService';
 
 const ChatWindow = ({
     messages,
@@ -13,74 +18,78 @@ const ChatWindow = ({
     socket,
     socketConnected,
     setMessages,
-    setShowSidebar,
     getInitials,
     isUserOnline,
     onBack,
     onOpenVault,
 }) => {
-    const { user, selectedChat, setSelectedChat } = useChatState();
+    const { user, selectedChat } = useChatState();
     const [newMessage, setNewMessage] = useState("");
     const [typing, setTyping] = useState(false);
-    const [replyingTo, setReplyingTo] = useState(null);
-    const [previewMedia, setPreviewMedia] = useState(null);
+    const [decryptedMessages, setDecryptedMessages] = useState({});
     const messagesEndRef = useRef(null);
     const typingTimerRef = useRef(null);
-    const inputRef = useRef(null);
-
-    const logout = () => {
-        localStorage.removeItem('userInfo');
-        window.location.href = '/';
-    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    const scrollToMessage = (msgId) => {
-        const element = document.getElementById(`msg-${msgId}`);
-        if (element) {
-            element.scrollIntoView({ behavior: "smooth", block: "center" });
-            element.classList.add("highlight-message");
-            setTimeout(() => element.classList.remove("highlight-message"), 2000);
-        } else {
-            toast.info("Original message not found in recent history");
-        }
-    };
-
     useEffect(() => {
         scrollToBottom();
+    }, [messages, decryptedMessages]);
+
+    // Decrypt messages as they come in
+    useEffect(() => {
+        const decryptAll = async () => {
+            const privateKey = localStorage.getItem('privateKey');
+            if (!privateKey) return;
+
+            const newDecrypted = { ...decryptedMessages };
+            let changed = false;
+
+            for (const m of messages) {
+                if (!newDecrypted[m._id] && m.encrypted_message) {
+                    try {
+                        const plainText = await decryptMessage(m.encrypted_message, privateKey);
+                        newDecrypted[m._id] = plainText;
+                        changed = true;
+                    } catch (err) {
+                        newDecrypted[m._id] = "[Encryption Error: Failed to decrypt]";
+                        changed = true;
+                    }
+                }
+            }
+
+            if (changed) setDecryptedMessages(newDecrypted);
+        };
+        decryptAll();
     }, [messages]);
 
-    useEffect(() => {
-        const handleResize = () => scrollToBottom();
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
     const handleSendMessage = async () => {
-        const trimmedMessage = newMessage.trim();
-        if (!trimmedMessage || !selectedChat || !user) return;
+        const text = newMessage.trim();
+        if (!text || !selectedChat || !user) return;
 
-        const vaultTrigger = `#mypic=${(user.customCode || '0404').trim()}`.toLowerCase();
-
-        if (trimmedMessage.toLowerCase() === vaultTrigger) {
-            console.log("Vault trigger detected!"); // Debug log
+        // Check for vault trigger (legacy compatibility, but we can make it cleaner)
+        if (text.toLowerCase() === '#vault') {
             setNewMessage('');
-            if (onOpenVault) onOpenVault(selectedChat._id);
+            onOpenVault();
             return;
         }
 
-        if (socket) socket.emit("stop typing", selectedChat._id);
-        setTyping(false);
-        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-
-        const messageText = trimmedMessage;
-        const replyId = replyingTo?._id;
+        const currentMsg = text;
         setNewMessage("");
-        setReplyingTo(null);
 
         try {
+            // Check for recipient public key
+            const recipientPublicKey = selectedChat.public_key;
+            if (!recipientPublicKey) {
+                toast.error("Recipient has no public key. Security compromised.");
+                return;
+            }
+
+            // Encrypt Message
+            const encryptedPayload = await encryptMessage(currentMsg, recipientPublicKey);
+
             const config = {
                 headers: {
                     "Content-type": "application/json",
@@ -89,31 +98,24 @@ const ChatWindow = ({
             };
 
             const { data } = await axios.post(`${API_BASE_URL}/api/chat`, {
-                content: messageText,
-                chatId: selectedChat._id,
-                replyTo: replyId,
+                encrypted_message: encryptedPayload,
+                recipientId: selectedChat._id,
+                duration: 0, // 0 means no self-destruct for now
             }, config);
 
             if (socket) {
-                socket.emit("new message", {
-                    chat: { users: [user, selectedChat] },
-                    sender: user,
-                    ...data
-                });
+                socket.emit("new message", data);
             }
             setMessages((prev) => [...prev, data]);
         } catch (error) {
-            toast.error("Failed to send message");
-            setNewMessage(messageText);
-            setReplyingTo(replyingTo);
+            toast.error("Failed to transmit secure packet.");
+            setNewMessage(currentMsg);
         }
     };
 
     const typingHandler = (e) => {
-        const value = e.target.value;
-        setNewMessage(value);
-
-        if (!selectedChat || !socketConnected || !socket) return;
+        setNewMessage(e.target.value);
+        if (!socketConnected || !socket) return;
 
         if (!typing) {
             setTyping(true);
@@ -127,313 +129,123 @@ const ChatWindow = ({
         }, 3000);
     };
 
-    const clearChat = async () => {
-        if (!window.confirm("Clear this chat history for you?")) return;
-        try {
-            const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`${API_BASE_URL}/api/chat/delete/${selectedChat._id}`, {}, config);
-            setMessages([]);
-            toast.success("Chat cleared");
-        } catch {
-            toast.error("Error clearing chat");
-        }
-    };
-
-    const handleBack = () => {
-        if (onBack) {
-            onBack();
-        } else {
-            setShowSidebar(true);
-            setSelectedChat(null);
-        }
-    };
-
-    const renderMessageContent = (text, isMine) => {
-        if (text.startsWith('[IMAGE] ')) {
-            const url = text.replace('[IMAGE] ', '');
-            return (
-                <img
-                    src={url}
-                    alt="Shared media"
-                    className="chat-image-preview my-2"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setPreviewMedia({ url, type: 'image' });
-                    }}
-                />
-            );
-        }
-        if (text.startsWith('[VIDEO] ')) {
-            const url = text.replace('[VIDEO] ', '');
-            return (
-                <div
-                    className="relative group my-2 cursor-pointer"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setPreviewMedia({ url, type: 'video' });
-                    }}
-                >
-                    <video src={url} className="chat-image-preview" preload="metadata" />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-xl">
-                        <FaPlayCircle size={40} className="text-white opacity-80" />
-                    </div>
-                </div>
-            );
-        }
-        return <p className="text-sm leading-relaxed break-words">{text}</p>;
-    };
-
     if (!selectedChat) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center h-full text-center p-8 bg-gray-50 dark:bg-[#0b0e14]">
-                <div className="relative mb-8">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-full blur-[60px] opacity-20" />
-                    <div className="p-10 glass-morphism rounded-full relative z-10 shadow-2xl">
-                        <svg className="w-20 h-20 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
+            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-950/50">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center"
+                >
+                    <div className="w-24 h-24 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-indigo-500/20">
+                        <Zap className="text-indigo-500" size={40} />
                     </div>
-                </div>
-                <h1 className="text-3xl font-black text-gray-800 dark:text-white mb-3 tracking-tight">
-                    SimpleConnect
-                </h1>
-                <p className="max-w-xs text-gray-500 dark:text-gray-400 text-base font-medium leading-relaxed">
-                    Select a friend to start a private, secure conversation.
-                </p>
-                <div className="mt-8 flex items-center space-x-2 px-5 py-2.5 bg-white/60 dark:bg-gray-800/60 backdrop-blur rounded-2xl shadow-sm border border-white/30">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
-                    <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-widest">
-                        {onlineUsers.length} Online
-                    </span>
-                </div>
+                    <h2 className="text-2xl font-bold mb-2">Secure Channel Waiting</h2>
+                    <p className="text-slate-500">Select a contact to initiate E2E encrypted session.</p>
+                </motion.div>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-full bg-gray-50 dark:bg-[#0b0e14]">
-            {/* ── Fixed Header ── */}
-            <div className="header-container bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-700 shadow-sm">
-
-                <div className="flex items-center justify-between px-3 py-3">
-                    <div className="flex items-center space-x-3 min-w-0">
-                        <button
-                            onClick={handleBack}
-                            className="md:hidden flex-shrink-0 w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                        >
-                            <FaArrowLeft className="text-base" />
-                        </button>
-
-                        <div className="relative flex-shrink-0">
-                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-base shadow-inner">
-                                {getInitials(selectedChat.name)}
-                            </div>
-                            {isUserOnline(selectedChat._id) && (
-                                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full" />
-                            )}
+        <div className="flex flex-col h-full bg-slate-950 relative">
+            {/* Header */}
+            <header className="glass-stealth px-4 py-3 safe-area-pt flex items-center justify-between z-50">
+                <div className="flex items-center gap-3 min-w-0">
+                    <button onClick={onBack} className="p-2 -ml-2 text-slate-400 hover:text-white md:hidden">
+                        <ChevronLeft size={24} />
+                    </button>
+                    <div className="relative">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-400">
+                            {getInitials(selectedChat.username)}
                         </div>
-
-                        <div className="min-w-0">
-                            <h2 className="font-black text-gray-800 dark:text-gray-100 text-base tracking-tight truncate max-w-[160px] sm:max-w-[240px]">
-                                {selectedChat.name}
-                            </h2>
-                            {isTyping
-                                ? <span className="text-xs text-indigo-500 font-semibold animate-pulse">typing…</span>
-                                : isUserOnline(selectedChat._id)
-                                    ? <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest">Active now</span>
-                                    : <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Offline</span>
-                            }
-                        </div>
-                    </div>
-
-                    <div className="flex items-center space-x-1">
-                        <button onClick={logout} className="flex-shrink-0 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-red-500 rounded-2xl">
-                            <FaSignOutAlt className="text-sm" />
-                        </button>
-                        <button onClick={clearChat} className="flex-shrink-0 w-10 h-10 flex items-center justify-center text-red-400 hover:text-red-500 rounded-2xl">
-                            <FaTrash className="text-sm" />
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Messages area — flex:1 + overflow-y so it fills remaining space ── */}
-            <div className="chat-scroll px-3 py-4 space-y-4">
-                {loading && (
-                    <div className="flex justify-center py-8">
-                        <svg className="animate-spin h-8 w-8 text-indigo-500" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                    </div>
-                )}
-
-                {messages.length === 0 && !loading && (
-                    <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-50 py-16">
-                        <div className="p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-full">
-                            <FaPaperPlane className="text-4xl text-indigo-500" />
-                        </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[200px]">
-                            Say hello to <strong>{selectedChat.name}</strong>!
-                        </p>
-                    </div>
-                )}
-
-                {messages.map((m, i) => {
-                    const isMine = m.sender._id === user?._id;
-                    return (
-                        <div key={m._id || i}
-                            id={`msg-${m._id}`}
-                            className={`flex ${isMine ? 'justify-end' : 'justify-start'} animate-message group px-1`}>
-                            <div
-                                onClick={() => {
-                                    if (window.innerWidth < 768) {
-                                        setReplyingTo(m);
-                                        inputRef.current?.focus();
-                                    }
-                                }}
-                                className={`
-                                    max-w-[85%] sm:max-w-[70%]
-                                    px-4 py-2.5 shadow-sm relative transition-all active:scale-[0.98]
-                                    ${isMine ? 'chat-bubble-sender' : 'chat-bubble-receiver'}
-                                `}
-                            >
-                                {m.replyTo && (
-                                    <div
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            scrollToMessage(m.replyTo.messageId || m.replyTo._id);
-                                        }}
-                                        className={`mb-2 p-2 text-xs rounded-lg border-l-4 truncate cursor-pointer
-                                            ${isMine ? 'reply-quote-amber' : 'reply-quote-indigo'}`}>
-                                        <div className="font-bold mb-0.5">
-                                            {m.replyTo.senderName
-                                                ? (m.replyTo.senderId === user?._id ? "You" : m.replyTo.senderName)
-                                                : (m.replyTo.sender?._id === user?._id ? "You" : m.replyTo.sender?.name || "Original Message")
-                                            }
-                                        </div>
-                                        <span className="opacity-80 italic">{m.replyTo.text}</span>
-                                    </div>
-                                )}
-
-                                {renderMessageContent(m.text, isMine)}
-
-                                <div className="flex items-center justify-end mt-1">
-                                    <span className={`text-[9px] font-bold opacity-70 ${isMine ? 'text-white/70' : 'text-gray-400'}`}>
-                                        {new Date(m.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                                    </span>
-                                </div>
-
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setReplyingTo(m);
-                                        inputRef.current?.focus();
-                                    }}
-                                    className={`absolute top-1/2 -translate-y-1/2 
-                                        ${isMine ? '-left-10' : '-right-10'}
-                                        w-8 h-8 flex items-center justify-center
-                                        text-gray-400 hover:text-indigo-500
-                                        transition-all opacity-0 group-hover:opacity-100 
-                                        hidden md:flex`}
-                                >
-                                    <FaReply size={14} />
-                                </button>
-                            </div>
-                        </div>
-                    );
-                })}
-
-                <div ref={messagesEndRef} className="h-1" />
-            </div>
-
-            {/* ── Input bar — no sticky needed, sits at bottom of fixed-height flex column ── */}
-            <div className="flex-shrink-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-100 dark:border-gray-800 safe-bottom">
-                {replyingTo && (
-                    <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/10 flex items-center justify-between border-b border-amber-100 dark:border-amber-900/20">
-                        <div className="flex items-center space-x-2 min-w-0">
-                            <FaReply className="text-amber-500 flex-shrink-0" size={12} />
-                            <div className="min-w-0">
-                                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
-                                    Replying to {replyingTo.sender._id === user?._id ? "yourself" : replyingTo.sender.name}
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate italic">
-                                    {replyingTo.text}
-                                </p>
-                            </div>
-                        </div>
-                        <button onClick={() => setReplyingTo(null)} className="p-2 text-gray-400">
-                            <FaTimes size={16} />
-                        </button>
-                    </div>
-                )}
-
-                <div className="px-3 py-3">
-                    <div className="flex items-center space-x-2">
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            inputMode="text"
-                            enterKeyHint="send"
-                            className="flex-1 bg-gray-100 dark:bg-gray-800 border-none rounded-[22px] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all text-gray-800 dark:text-gray-100"
-                            placeholder={`Message ${selectedChat.name}…`}
-                            onChange={typingHandler}
-                            value={newMessage}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey && newMessage.trim()) {
-                                    e.preventDefault();
-                                    handleSendMessage();
-                                }
-                            }}
-                        />
-                        <button
-                            onClick={handleSendMessage}
-                            disabled={!newMessage.trim()}
-                            className={`flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-md ${newMessage.trim() ? 'bg-amber-500 text-white shadow-amber-500/30 active:scale-90' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}
-                        >
-                            <FaPaperPlane className="text-sm transform rotate-45" />
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Media Preview Modal ── */}
-            {previewMedia && (
-                <div
-                    className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex flex-col animate-fade-in"
-                    onClick={() => setPreviewMedia(null)}
-                >
-                    <div className="flex justify-between items-center p-4">
-                        <button
-                            onClick={() => setPreviewMedia(null)}
-                            className="p-2 text-white/70 hover:text-white"
-                        >
-                            <FaTimes size={22} />
-                        </button>
-                    </div>
-                    <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
-                        {previewMedia.type === 'image' ? (
-                            <img
-                                src={previewMedia.url}
-                                alt="Shared preview"
-                                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                                onClick={(e) => e.stopPropagation()}
-                            />
-                        ) : (
-                            <video
-                                src={previewMedia.url}
-                                controls
-                                autoPlay
-                                className="max-w-full max-h-full rounded-lg"
-                                onClick={(e) => e.stopPropagation()}
-                            />
+                        {isUserOnline(selectedChat._id) && (
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full" />
                         )}
                     </div>
+                    <div className="min-w-0">
+                        <h3 className="font-bold text-white truncate">{selectedChat.username}</h3>
+                        <p className="text-[10px] uppercase tracking-widest font-bold text-indigo-500/70">
+                            {isTyping ? 'Intercepting keys...' : 'Encrypted Link'}
+                        </p>
+                    </div>
                 </div>
-            )}
+                <div className="flex items-center gap-1">
+                    <button onClick={onOpenVault} className="p-2 text-slate-400 hover:text-indigo-400 transition-colors">
+                        <Shield size={20} />
+                    </button>
+                    <button className="p-2 text-slate-400 hover:text-white">
+                        <MoreVertical size={20} />
+                    </button>
+                </div>
+            </header>
+
+            {/* Messages Area */}
+            <main className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+                <AnimatePresence initial={false}>
+                    {messages.map((m) => {
+                        const isMine = m.sender._id === user?._id;
+                        return (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                key={m._id}
+                                className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
+                            >
+                                <div className={`
+                                    max-w-[80%] px-4 py-2.5 
+                                    ${isMine ? 'chat-bubble-stealth-sender' : 'chat-bubble-stealth-receiver'}
+                                `}>
+                                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                                        {decryptedMessages[m._id] || (loading ? 'Decrypting...' : 'Encrypted Packet')}
+                                    </p>
+                                    <div className="mt-1 flex items-center justify-end gap-2">
+                                        {m.expires_at && (
+                                            <div className="flex items-center gap-1 text-[9px] text-indigo-400">
+                                                <Clock size={10} />
+                                                <span>Temporal</span>
+                                            </div>
+                                        )}
+                                        <span className="text-[9px] opacity-40">
+                                            {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        );
+                    })}
+                </AnimatePresence>
+                <div ref={messagesEndRef} />
+            </main>
+
+            {/* Input Bar */}
+            <footer className="p-4 safe-area-pb bg-slate-950/80 backdrop-blur-xl border-t border-white/5">
+                <div className="flex items-center gap-2">
+                    <button className="p-3 bg-white/5 rounded-2xl text-slate-400 hover:text-white transition-all">
+                        <ImageIcon size={20} />
+                    </button>
+                    <div className="flex-1 relative">
+                        <input
+                            type="text"
+                            placeholder="Type an encoded message..."
+                            value={newMessage}
+                            onChange={typingHandler}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
+                        />
+                    </div>
+                    <button
+                        onClick={handleSendMessage}
+                        disabled={!newMessage.trim()}
+                        className={`p-3 rounded-2xl transition-all ${newMessage.trim() ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-white/5 text-slate-600'}`}
+                    >
+                        <Send size={20} />
+                    </button>
+                </div>
+            </footer>
         </div>
     );
 };
 
 export default React.memo(ChatWindow);
+

@@ -1,11 +1,15 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const vaultRoutes = require('./routes/vaultRoutes');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+
 
 connectDB();
 
@@ -33,15 +37,15 @@ cloudinary.config({ cloud_name, api_key, api_secret });
 
 const app = express();
 
-// Request logger for debugging connectivity
-app.use((req, res, next) => {
-    console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url} from ${req.ip}`);
-    next();
-});
-
-// Allow all origins — needed for mobile devices on local network
-app.use(cors());
+app.use(helmet()); // Security headers
+app.use(morgan('dev')); // Logger
+app.use(cookieParser()); // Cookie parsing
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true
+}));
 app.use(express.json());
+
 
 app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
@@ -75,11 +79,15 @@ io.on('connection', (socket) => {
     socket.on('setup', (userData) => {
         socket.join(userData._id);
         if (userData) {
-            // Remove existing entry for this user if it exists to avoid old socketIds
+            // Remove existing entry
             onlineUsers = onlineUsers.filter(u => u.userId !== userData._id);
-            onlineUsers.push({ userId: userData._id, socketId: socket.id });
+
+            // Only broadcast as online if NOT in ghost mode
+            if (!userData.ghost_mode?.hide_online) {
+                onlineUsers.push({ userId: userData._id, socketId: socket.id });
+                io.emit('online-users', onlineUsers);
+            }
         }
-        io.emit('online-users', onlineUsers);
         socket.emit('connected');
     });
 
@@ -88,8 +96,14 @@ io.on('connection', (socket) => {
         console.log('User Joined Room: ' + room);
     });
 
-    socket.on('typing', (room) => socket.in(room).emit('typing'));
+    socket.on('typing', (data) => {
+        // data should contain { room, ghostMode }
+        if (!data.ghostMode?.disable_typing) {
+            socket.in(data.room).emit('typing');
+        }
+    });
     socket.on('stop typing', (room) => socket.in(room).emit('stop typing'));
+
 
     socket.on('new message', (newMessageRecieved) => {
         var chat = newMessageRecieved.chat;

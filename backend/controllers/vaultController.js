@@ -1,7 +1,11 @@
 const asyncHandler = require('express-async-handler');
+const Vault = require('../models/vaultModel');
+const Friendship = require('../models/friendshipModel');
+const Image = require('../models/imageModel');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
+
 
 // Configure Cloudinary
 const cloudinaryConfig = {
@@ -19,10 +23,18 @@ if (cloudinaryConfig.api_secret) {
     console.error("[Cloudinary] ERROR: API_SECRET is missing!");
 }
 
-// Helper to get Vault ID
-const getVaultId = (user1, user2) => {
-    return [user1, user2].sort().join('_');
+// Helper to get Vault from Friendship
+const getVaultByRelationship = async (user1, user2) => {
+    const friendship = await Friendship.findOne({
+        $or: [
+            { user1, user2 },
+            { user1: user2, user2: user1 }
+        ]
+    });
+    if (!friendship) return null;
+    return await Vault.findById(friendship.vault_id);
 };
+
 
 /**
  * Ensures the specific vault folder exists in Cloudinary.
@@ -101,62 +113,96 @@ const uploadMedia = asyncHandler(async (req, res) => {
     }
 });
 
-// @desc    Get all vault media for a specific chat
-// @route   GET /api/vault?recipientId=...
+// @desc    Get Vault Details (and handle unlock attempt)
+// @route   GET /api/vault/details?recipientId=...
 // @access  Private
-const getVaultMedia = asyncHandler(async (req, res) => {
+const getVaultDetails = asyncHandler(async (req, res) => {
     const { recipientId } = req.query;
+    const vault = await getVaultByRelationship(req.user._id, recipientId);
 
-    if (!recipientId) {
-        res.status(400);
-        throw new Error("Recipient ID is required to access chat-specific vault.");
+    if (!vault) {
+        res.status(404);
+        throw new Error("Vault not found");
     }
 
-    // Check for placeholder credentials
-    if (process.env.CLOUDINARY_CLOUD_NAME === 'your_cloud_name') {
-        return res.status(500).json({
-            message: "Cloudinary is not configured. Please set real credentials in backend/.env file.",
-            error: "MISSING_CONFIG"
-        });
+    // Check if locked
+    if (vault.lock_until && vault.lock_until > Date.now()) {
+        const remaining = Math.round((vault.lock_until - Date.now()) / 1000 / 60);
+        res.status(403);
+        throw new Error(`Vault is locked. Try again in ${remaining} minutes.`);
     }
 
-    const vaultId = getVaultId(req.user._id.toString(), recipientId);
-    await ensureVaultFolderExists(vaultId); // Ensure folder exists at trigger/upload time
-    const prefix = `secret_vault/chat_vaults/${vaultId}/`;
-
-    console.log(`[Vault] Fetching media from prefix: ${prefix}`);
-
-    try {
-        // Fetch images
-        const images = await cloudinary.api.resources({
-            type: 'upload',
-            prefix: prefix,
-            max_results: 100,
-            resource_type: 'image'
-        }).catch(() => ({ resources: [] })); // Handle potential errors gracefully
-
-        // Fetch videos
-        const videos = await cloudinary.api.resources({
-            type: 'upload',
-            prefix: prefix,
-            max_results: 100,
-            resource_type: 'video'
-        }).catch(() => ({ resources: [] }));
-
-        const allMedia = [
-            ...images.resources.map(r => ({ ...r, type: 'image' })),
-            ...videos.resources.map(r => ({ ...r, type: 'video' }))
-        ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-        res.json(allMedia);
-    } catch (error) {
-        console.error("Vault Fetch Error:", error);
-        res.status(500).json({
-            message: "Cloudinary error. Check if your API Key/Secret are correct.",
-            error: error.message
-        });
-    }
+    res.json({
+        vault_id: vault._id,
+        encrypted_vault_key: vault.encrypted_vault_key,
+        failed_attempts: vault.failed_attempts,
+    });
 });
+
+// @desc    Report Failed Unlock Attempt
+// @route   POST /api/vault/fail
+// @access  Private
+const reportFailedAttempt = asyncHandler(async (req, res) => {
+    const { vaultId } = req.body;
+    const vault = await Vault.findById(vaultId);
+
+    if (!vault) {
+        res.status(404);
+        throw new Error("Vault not found");
+    }
+
+    vault.failed_attempts += 1;
+
+    if (vault.failed_attempts >= 5) {
+        // Force re-authentication (this will be handled by frontend logging out or invalidating session)
+        // Reset attempts but keep lock logic
+        vault.failed_attempts = 0;
+        await vault.save();
+        return res.status(401).json({ message: "Too many attempts. Re-authentication required.", forceLogout: true });
+    }
+
+    if (vault.failed_attempts >= 3) {
+        vault.lock_until = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    }
+
+    await vault.save();
+    res.json({ message: "Attempt recorded", failed_attempts: vault.failed_attempts, lock_until: vault.lock_until });
+});
+
+// @desc    Reset Failed Attempts (on successful unlock)
+// @route   POST /api/vault/reset
+// @access  Private
+const resetAttempts = asyncHandler(async (req, res) => {
+    const { vaultId } = req.body;
+    const vault = await Vault.findById(vaultId);
+
+    if (vault) {
+        vault.failed_attempts = 0;
+        vault.lock_until = null;
+        await vault.save();
+    }
+
+    res.json({ message: "Attempts reset" });
+});
+
+// @desc    Update Vault Key (e.g. at creation or when changing vault password)
+// @route   PUT /api/vault/key
+// @access  Private
+const updateVaultKey = asyncHandler(async (req, res) => {
+    const { vaultId, encrypted_vault_key } = req.body;
+    const vault = await Vault.findById(vaultId);
+
+    if (!vault) {
+        res.status(404);
+        throw new Error("Vault not found");
+    }
+
+    vault.encrypted_vault_key = encrypted_vault_key;
+    await vault.save();
+
+    res.json({ message: "Vault key updated" });
+});
+
 
 // @desc    Delete media
 // @route   POST /api/vault/delete

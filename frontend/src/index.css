@@ -3,20 +3,24 @@
 @tailwind utilities;
 
 /* ══════════════════════════════════════════════════════════════════
-   ROOT CSS VARIABLES
-   --app-height is set dynamically by useVisualViewport hook.
-   Falls back to 100dvh which is good on modern browsers.
+   ROOT CSS VARIABLES (STEALTH THEME)
    ══════════════════════════════════════════════════════════════════ */
 :root {
   --app-height: 100dvh;
   --app-top: 0px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Stealth Color Palette */
+  --bg-stealth: #0b0e14;
+  --bg-stealth-soft: #141a23;
+  --accent-primary: #6366f1;
+  --accent-secondary: #a855f7;
+  --text-dim: #94a3b8;
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(15, 23, 42, 0.7);
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   BASE RESET
-   ══════════════════════════════════════════════════════════════════ */
 @layer base {
 
   *,
@@ -27,18 +31,17 @@
   }
 
   html {
-    /* Prevents safari address bar from affecting layout */
     height: 100%;
     overflow: hidden;
   }
 
   body {
-    @apply bg-gray-50 text-gray-800 dark:bg-[#0b0e14] dark:text-gray-100 transition-colors duration-300;
+    @apply bg-slate-950 text-slate-100 transition-colors duration-500;
     height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
   #root {
@@ -46,7 +49,6 @@
     overflow: hidden;
   }
 
-  /* Prevent iOS input zoom — font-size must be >= 16px */
   input,
   textarea,
   select {
@@ -54,240 +56,129 @@
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   COMPONENT STYLES
-   ══════════════════════════════════════════════════════════════════ */
 @layer components {
 
+  /* ── Premium Glassmorphism ── */
+  .glass-stealth {
+    @apply bg-slate-900/60 backdrop-blur-2xl border border-white/5 shadow-2xl;
+  }
+
+  .glass-panel {
+    @apply bg-white/5 backdrop-blur-lg border border-white/10 rounded-3xl shadow-xl transition-all;
+  }
+
+  /* ── Stealth Inputs with Floating Labels ── */
+  .stealth-input-group {
+    @apply relative mb-6;
+  }
+
+  .stealth-input {
+    @apply w-full px-5 py-4 bg-slate-900/40 border border-white/10 rounded-2xl focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder-transparent;
+  }
+
+  .stealth-label {
+    @apply absolute left-5 top-4 text-slate-400 transition-all pointer-events-none;
+  }
+
+  .stealth-input:focus~.stealth-label,
+  .stealth-input:not(:placeholder-shown)~.stealth-label {
+    @apply -top-2 left-4 text-xs text-indigo-400 bg-slate-950 px-2 rounded-full;
+  }
+
   /* ── Buttons ── */
-  .btn-primary {
-    @apply px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all transform active:scale-95 shadow-lg hover:shadow-indigo-500/25 min-h-[44px] touch-manipulation;
+  .btn-stealth {
+    @apply px-6 py-4 bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-2xl font-semibold hover:shadow-[0_0_20px_rgba(99, 102, 241, 0.4)] hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none;
   }
 
-  .input-field {
-    @apply w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 backdrop-blur-md transition-all min-h-[48px] touch-manipulation;
+  .btn-ghost {
+    @apply px-4 py-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all;
   }
 
-  .glass-morphism {
-    @apply bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-2xl;
+  /* ── Chat Bubbles (Stealth) ── */
+  .chat-bubble-stealth-sender {
+    @apply bg-indigo-600/90 text-white px-5 py-3 rounded-2xl rounded-tr-none shadow-lg border border-white/10;
   }
 
-  .glass-card {
-    @apply bg-white/40 dark:bg-gray-800/40 backdrop-blur-lg border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl transition-all hover:shadow-2xl hover:bg-white/50 dark:hover:bg-gray-800/50;
+  .chat-bubble-stealth-receiver {
+    @apply bg-slate-800/80 text-slate-100 px-5 py-3 rounded-2xl rounded-tl-none border border-white/5 shadow-md;
   }
 
-  /* ── Chat Bubbles ── */
-  .chat-bubble-sender {
-    @apply bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-2xl rounded-tr-none shadow-md;
-  }
-
-  .chat-bubble-receiver {
-    @apply bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-2xl rounded-tl-none border border-gray-100 dark:border-gray-700 shadow-sm;
-  }
-
-  /* ── Touch Items ── */
-  .touch-item {
-    @apply min-h-[56px] flex items-center touch-manipulation cursor-pointer;
-  }
-
-  /*
-   * THE CORE APP SHELL
-   * - top: var(--app-top) compensates for Android viewport offset when keyboard opens
-   * - height: var(--app-height) shrinks when keyboard opens
-   * - position: fixed so iOS rubber-band never moves it
-   */
-  .app-height {
-    position: fixed;
+  /* ── Layout ── */
+  .app-shell {
+    @apply fixed inset-0 w-full h-full overflow-hidden flex bg-slate-950;
     top: var(--app-top);
-    left: 0;
-    right: 0;
-    width: 100%;
     height: var(--app-height);
-    overflow: hidden;
-    display: flex;
   }
 
-  /*
-   * SAFE-AREA HELPERS
-   * .safe-top   → header / notch area. Uses max() so punch-hole cameras
-   *               (which often report 0px) still get at least 8px breathing room.
-   * .safe-bottom → home indicator on iPhones etc.
-   */
-  .safe-top {
-    padding-top: max(env(safe-area-inset-top, 0px), 8px);
+  .safe-area-pt {
+    padding-top: max(env(safe-area-inset-top, 0px), 12px);
   }
 
-  .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  /* Header bar — flex-shrink:0 keeps it at top of the flex column. safe-area built in. */
-  .header-container {
-    flex-shrink: 0;
-    z-index: 50;
-    width: 100%;
-    padding-top: max(env(safe-area-inset-top, 0px), 8px);
+  .safe-area-pb {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   SCROLLABLE MESSAGES AREA
-   ══════════════════════════════════════════════════════════════════ */
-.chat-scroll {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-  /* Min height 0 is CRITICAL inside a flex column —
-     without it, flex children don't shrink below their content size */
-  min-height: 0;
-}
-
-.chat-scroll::-webkit-scrollbar {
-  width: 3px;
-}
-
-.chat-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.chat-scroll::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.5);
-  border-radius: 9999px;
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   ANIMATIONS
-   ══════════════════════════════════════════════════════════════════ */
-@keyframes message-appear {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
+/* ── Custom Animations ── */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
   }
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  100% {
+    background-position: 200% 0;
   }
 }
 
-.animate-message {
-  animation: message-appear 0.25s ease-out forwards;
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
 }
 
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out forwards;
-}
-
-@keyframes bounce-slow {
+@keyframes shake {
 
   0%,
   100% {
-    transform: translateY(0);
+    transform: translateX(0);
   }
 
-  50% {
-    transform: translateY(-10px);
+  25% {
+    transform: translateX(-5px);
+  }
+
+  75% {
+    transform: translateX(5px);
   }
 }
 
-.animate-bounce-slow {
-  animation: bounce-slow 2s infinite ease-in-out;
+.animate-shake {
+  animation: shake 0.3s ease-in-out 2;
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   LAYOUT HELPERS
-   ══════════════════════════════════════════════════════════════════ */
-button,
-.touch-item {
-  -webkit-user-select: none;
-  user-select: none;
+/* ── Notes App Disguise Specifics ── */
+.notes-paper {
+  @apply bg-[#151a21] min-h-screen text-slate-300 p-8 font-mono;
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   VAULT SCROLLBAR
-   ══════════════════════════════════════════════════════════════════ */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
+.notes-cursor {
+  @apply w-0.5 h-6 bg-indigo-500 inline-block align-middle animate-pulse;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   VAULT / FULLSCREEN SCROLLING
-   ══════════════════════════════════════════════════════════════════ */
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   CHAT BUBBLE EXTRAS
-   ══════════════════════════════════════════════════════════════════ */
-@keyframes highlight-msg {
-  0% {
-    background-color: transparent;
-  }
-
-  30% {
-    background-color: rgba(251, 191, 36, 0.4);
-  }
-
-  100% {
-    background-color: transparent;
-  }
-}
-
-.highlight-message {
-  animation: highlight-msg 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
-  border-radius: 12px;
-}
-
-.reply-quote-amber {
-  background: rgba(245, 158, 11, 0.1) !important;
-  border-left-color: #f59e0b !important;
-}
-
-.reply-quote-indigo {
-  background: rgba(99, 102, 241, 0.1) !important;
-  border-left-color: #6366f1 !important;
-}
-
-.chat-image-preview {
-  max-width: 260px;
-  max-height: 380px;
-  object-fit: cover;
-  cursor: pointer;
-  border-radius: 16px;
-  border: 4px solid rgba(255, 255, 255, 0.1);
-  transition: transform 0.2s;
-}
-
-.chat-image-preview:active {
-  transform: scale(0.98);
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }

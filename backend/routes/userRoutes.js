@@ -2,6 +2,8 @@ const express = require('express');
 const {
     registerUser,
     authUser,
+    verifyEmail,
+    resendVerificationEmail,
     searchUsers,
     verifyForgotPassword,
     resetPassword,
@@ -18,8 +20,11 @@ const router = express.Router();
 
 router.route('/').post(registerUser).get(protect, searchUsers);
 router.post('/login', authUser);
+router.post('/verify-email', verifyEmail);
+router.post('/resend-verification', resendVerificationEmail);
 router.post('/forgot-password-verify', verifyForgotPassword);
 router.put('/reset-password', resetPassword);
+
 
 router.post('/friend-request', protect, sendFriendRequest);
 router.post('/friend-request/respond', protect, respondToFriendRequest);

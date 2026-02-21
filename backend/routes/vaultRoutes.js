@@ -2,18 +2,21 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const {
-    getVaultMedia,
+    getVaultDetails,
+    reportFailedAttempt,
+    resetAttempts,
+    updateVaultKey,
     deleteVaultMedia,
     uploadMedia,
     upload
 } = require('../controllers/vaultController');
 
-router.route('/')
-    .get(protect, getVaultMedia);
-
+router.get('/details', protect, getVaultDetails);
+router.post('/fail', protect, reportFailedAttempt);
+router.post('/reset', protect, resetAttempts);
+router.put('/key', protect, updateVaultKey);
 router.post('/upload', protect, upload.single('file'), uploadMedia);
-
-// Use POST for deletion to easily handle public_ids with slashes/folders
 router.post('/delete', protect, deleteVaultMedia);
+
 
 module.exports = router;

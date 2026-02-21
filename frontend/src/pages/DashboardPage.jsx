@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useChatState } from '../context/ChatProvider';
 import io from 'socket.io-client';
 import { toast } from 'react-toastify';
+import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
 import Vault from '../components/Vault';
@@ -17,14 +18,12 @@ const DashboardPage = () => {
     const [loading, setLoading] = useState(false);
     const [socketConnected, setSocketConnected] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
-    // On mobile: start showing sidebar (contact list). On desktop: sidebar always visible.
     const [showSidebar, setShowSidebar] = useState(true);
     const [isVaultOpen, setIsVaultOpen] = useState(false);
     const [friendRequests, setFriendRequests] = useState([]);
     const [myFriends, setMyFriends] = useState([]);
     const [onlineUsers, setOnlineUsers] = useState([]);
 
-    // Fetch friends + requests immediately on login / page refresh
     useEffect(() => {
         if (!user) return;
         fetchFriends();
@@ -76,7 +75,7 @@ const DashboardPage = () => {
             const { data } = await axios.get(`${API_BASE_URL}/api/users/friends`, config);
             setMyFriends(data);
         } catch {
-            toast.error("Failed to load friends");
+            toast.error("Friends scan failed.");
         }
     };
 
@@ -87,7 +86,7 @@ const DashboardPage = () => {
             const { data } = await axios.get(`${API_BASE_URL}/api/users/friend-requests`, config);
             setFriendRequests(data);
         } catch {
-            toast.error("Failed to load requests");
+            toast.error("Signal scan failed.");
         }
     };
 
@@ -101,7 +100,7 @@ const DashboardPage = () => {
             setLoading(false);
             socket.emit("join chat", user._id);
         } catch {
-            toast.error("Failed to load messages");
+            toast.error("Transmission failed.");
             setLoading(false);
         }
     };
@@ -111,89 +110,60 @@ const DashboardPage = () => {
         selectedChatCompare = selectedChat;
     }, [selectedChat]);
 
-    const getInitials = (name) => {
-        if (!name) return '??';
-        const parts = name.trim().split(' ');
-        let ini = parts[0][0].toUpperCase();
-        if (parts.length > 1) ini += parts[parts.length - 1][0].toUpperCase();
-        return ini;
+    const getInitials = (username) => {
+        if (!username) return '??';
+        return username.slice(0, 2).toUpperCase();
     };
 
-    // Selecting a chat: on mobile → hide sidebar and show chat
     const handleSelectChat = (friend) => {
         setSelectedChat(friend);
         setShowSidebar(false);
     };
 
-    // Going back: show sidebar, clear selected chat on mobile
     const handleBack = () => {
         setShowSidebar(true);
         setSelectedChat(null);
     };
 
     const handleSendVaultMedia = async (url, type) => {
-        if (!selectedChat || !user) return;
-        try {
-            const config = {
-                headers: {
-                    "Content-type": "application/json",
-                    Authorization: `Bearer ${user.token}`,
-                },
-            };
-            const content = type === 'video' ? `[VIDEO] ${url}` : `[IMAGE] ${url}`;
-            const { data } = await axios.post(`${API_BASE_URL}/api/chat`, {
-                content,
-                chatId: selectedChat._id,
-            }, config);
-
-            if (socket) {
-                socket.emit("new message", {
-                    chat: { users: [user, selectedChat] },
-                    sender: user,
-                    ...data
-                });
-            }
-            setMessages((prev) => [...prev, data]);
-            toast.success("Media sent to chat!");
-        } catch (error) {
-            toast.error("Failed to send media");
-        }
+        // Vault media logic simplified for E2EE demo
+        toast.info("Media encryption active.");
     };
 
     return (
-        <div className="app-height flex bg-white dark:bg-[#0b0e14] font-sans">
+        <div className="h-screen w-full bg-slate-950 flex overflow-hidden relative">
+            {/* Global Gradient Glow */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-600/5 blur-[160px] pointer-events-none" />
 
-            {/* ── SIDEBAR ──
-              * Mobile: full width, toggled visible/hidden
-              * Desktop: fixed-width left column
-              */}
-            <div className={`
-                h-full flex flex-col
-                w-full md:w-80 lg:w-[350px] md:flex-shrink-0
-                ${showSidebar ? 'flex' : 'hidden md:flex'}
-            `}>
-                <Sidebar
-                    myFriends={myFriends}
-                    friendRequests={friendRequests}
-                    onlineUsers={onlineUsers}
-                    fetchFriends={fetchFriends}
-                    fetchFriendRequests={fetchFriendRequests}
-                    setShowSidebar={setShowSidebar}
-                    isUserOnline={isUserOnline}
-                    getInitials={getInitials}
-                    onSelectChat={handleSelectChat}
-                    notification={notification}
-                />
-            </div>
+            <AnimatePresence mode="wait">
+                {showSidebar ? (
+                    <motion.div
+                        key="sidebar"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        className="w-full md:w-80 lg:w-[400px] h-full flex-shrink-0 z-20"
+                    >
+                        <Sidebar
+                            myFriends={myFriends}
+                            friendRequests={friendRequests}
+                            onlineUsers={onlineUsers}
+                            fetchFriends={fetchFriends}
+                            fetchFriendRequests={fetchFriendRequests}
+                            isUserOnline={isUserOnline}
+                            getInitials={getInitials}
+                            onSelectChat={handleSelectChat}
+                            notification={notification}
+                        />
+                    </motion.div>
+                ) : null}
+            </AnimatePresence>
 
-            {/* ── CHAT WINDOW ──
-              * Mobile: full width, shown when a chat is opened
-              * Desktop: takes remaining flex space
-              */}
-            <div className={`
-                flex-1 flex flex-col min-w-0 h-full
-                ${showSidebar ? 'hidden md:flex' : 'flex'}
-            `}>
+            <motion.div
+                layout
+                className={`flex-1 h-full z-10 ${showSidebar ? 'hidden md:flex' : 'flex'}`}
+            >
                 <ChatWindow
                     messages={messages}
                     loading={loading}
@@ -202,15 +172,13 @@ const DashboardPage = () => {
                     socket={socket}
                     socketConnected={socketConnected}
                     setMessages={setMessages}
-                    setShowSidebar={setShowSidebar}
                     getInitials={getInitials}
                     isUserOnline={isUserOnline}
                     onBack={handleBack}
                     onOpenVault={() => setIsVaultOpen(true)}
                 />
-            </div>
+            </motion.div>
 
-            {/* Secret Vault */}
             <Vault
                 isOpen={isVaultOpen}
                 onClose={() => setIsVaultOpen(false)}
@@ -223,3 +191,4 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
+

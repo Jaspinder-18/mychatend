@@ -6,11 +6,11 @@ const User = require('../models/userModel');
 // @route   POST /api/chat
 // @access  Private
 const sendMessage = asyncHandler(async (req, res) => {
-    const { chatId, content, replyTo } = req.body; // replyTo is now messageId
+    const { chatId, encrypted_message, duration } = req.body; // duration in hours
 
-    if (!chatId || !content) {
-        console.log("Invalid data passed into request");
-        return res.sendStatus(400);
+    if (!chatId || !encrypted_message) {
+        res.status(400);
+        throw new Error("Invalid data passed into request");
     }
 
     // Check if friends
@@ -21,30 +21,22 @@ const sendMessage = asyncHandler(async (req, res) => {
         return res.json({ message: 'You can only chat with friends' });
     }
 
-    let replyData = null;
-    if (replyTo) {
-        const originalMsg = await Message.findById(replyTo).populate("sender", "name");
-        if (originalMsg) {
-            replyData = {
-                messageId: originalMsg._id,
-                senderId: originalMsg.sender._id,
-                senderName: originalMsg.sender.name,
-                text: originalMsg.text.substring(0, 100), // Snapshot first 100 chars
-            };
-        }
+    let expires_at = null;
+    if (duration) {
+        expires_at = new Date(Date.now() + duration * 60 * 60 * 1000);
     }
 
-    var newMessage = {
+    const newMessage = {
         sender: req.user._id,
         receiver: chatId,
-        text: content,
-        replyTo: replyData,
+        encrypted_message,
+        expires_at,
     };
 
     try {
-        var message = await Message.create(newMessage);
-        message = await message.populate("sender", "name pic");
-        message = await message.populate("receiver", "name pic");
+        let message = await Message.create(newMessage);
+        message = await message.populate("sender", "username public_key");
+        message = await message.populate("receiver", "username public_key");
 
         res.json(message);
     } catch (error) {
@@ -64,39 +56,33 @@ const getMessages = asyncHandler(async (req, res) => {
                 { sender: req.params.userId, receiver: req.user._id }
             ]
         })
-            .populate("sender", "name email")
-            .populate("receiver", "name email")
+            .populate("sender", "username public_key")
+            .populate("receiver", "username public_key")
             .sort({ createdAt: 1 });
 
-        // Filter out messages deleted by current user
-        const filteredMessages = messages.filter(msg => !msg.deletedBy.includes(req.user._id));
-
-        res.json(filteredMessages);
+        res.json(messages);
     } catch (error) {
         res.status(400);
         throw new Error(error.message);
     }
 });
 
-// @desc    Delete Chat (Clear history for self)
-// @route   PUT /api/chat/delete/:userId
+// @desc    Delete Chat (Clear history for both or self)
+// @route   DELETE /api/chat/:userId
 // @access  Private
 const deleteChat = asyncHandler(async (req, res) => {
     const otherUserId = req.params.userId;
 
-    await Message.updateMany(
-        {
-            $or: [
-                { sender: req.user._id, receiver: otherUserId },
-                { sender: otherUserId, receiver: req.user._id }
-            ]
-        },
-        {
-            $addToSet: { deletedBy: req.user._id }
-        }
-    );
+    // Hard delete for enterprise-grade privacy
+    await Message.deleteMany({
+        $or: [
+            { sender: req.user._id, receiver: otherUserId },
+            { sender: otherUserId, receiver: req.user._id }
+        ]
+    });
 
-    res.json({ message: 'Chat cleared successfully' });
+    res.json({ message: 'Chat deleted for both parties' });
 });
 
 module.exports = { sendMessage, getMessages, deleteChat };
+

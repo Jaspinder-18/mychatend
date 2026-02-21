@@ -12,28 +12,24 @@ const messageSchema = mongoose.Schema(
             ref: 'User',
             required: true,
         },
-        text: {
+        encrypted_message: {
             type: String,
             required: true,
         },
-        replyTo: {
-            messageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
-            senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-            senderName: String,
-            text: String,
+        // For self-destructing messages
+        expires_at: {
+            type: Date,
         },
-        deletedBy: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: 'User',
-            },
-        ],
     },
     {
         timestamps: true,
     }
 );
 
+// Optional: Auto-delete expired messages if self-destruct is set
+messageSchema.index({ expires_at: 1 }, { expireAfterSeconds: 0 });
+
 const Message = mongoose.model('Message', messageSchema);
 
 module.exports = Message;
+

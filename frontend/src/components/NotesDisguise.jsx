@@ -1,154 +1,160 @@
 import React, { useState, useEffect } from 'react';
-import { App } from '@capacitor/app';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Plus, Trash2, ChevronLeft, Save, Shield } from 'lucide-react';
 
 const NotesDisguise = ({ onUnlock }) => {
-    const [note, setNote] = useState('');
-    const [viewMode, setViewMode] = useState(false); // Toggle between editor and file list
-    const [savedFiles, setSavedFiles] = useState([]);
+    const [notes, setNotes] = useState(() => {
+        const saved = localStorage.getItem('stealth_notes_v2');
+        return saved ? JSON.parse(saved) : [
+            { id: 1, title: 'Grocery List', content: 'Milk, Eggs, Bread, Coffee', date: new Date().toISOString() },
+            { id: 2, title: 'Project Ideas', content: 'Build a privacy-focused chat app with a notes disguise.', date: new Date().toISOString() }
+        ];
+    });
+    const [selectedNote, setSelectedNote] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
-    // Load saved notes from local storage on mount
     useEffect(() => {
-        const stored = localStorage.getItem('stealth_app_notes');
-        if (stored) {
-            setSavedFiles(JSON.parse(stored));
-        }
-    }, []);
+        localStorage.setItem('stealth_notes_v2', JSON.stringify(notes));
+    }, [notes]);
 
-    const saveToStorage = (files) => {
-        localStorage.setItem('stealth_app_notes', JSON.stringify(files));
-        setSavedFiles(files);
+    const handleCreateNote = () => {
+        const newNote = {
+            id: Date.now(),
+            title: '',
+            content: '',
+            date: new Date().toISOString()
+        };
+        setSelectedNote(newNote);
     };
 
-    const handleSave = () => {
-        // Remove whitespace for secret code check
-        const cleanNote = note.replace(/\s/g, '');
-
-        // Check for secret codes
-        if (cleanNote === '#mychat=1809' || cleanNote === '#mypic=0404') {
+    const handleSaveNote = (noteData) => {
+        // Trigger check: if the title or content contains the secret pattern
+        const triggerPattern = '#unlock'; // Default trigger for now
+        if (noteData.title.toLowerCase().includes(triggerPattern) || noteData.content.toLowerCase().includes(triggerPattern)) {
             onUnlock();
             return;
         }
 
-        if (!note.trim()) {
-            alert('Cannot save empty note.');
-            return;
+        if (notes.find(n => n.id === noteData.id)) {
+            setNotes(notes.map(n => n.id === noteData.id ? noteData : n));
+        } else {
+            setNotes([noteData, ...notes]);
         }
-
-        // Prompt for filename
-        const fileName = prompt("Enter a name for this note:", `Note ${new Date().toLocaleDateString()}`);
-        if (fileName) {
-            const newFile = {
-                id: Date.now(),
-                name: fileName,
-                content: note,
-                date: new Date().toISOString()
-            };
-            const newFiles = [newFile, ...savedFiles]; // Add to top
-            saveToStorage(newFiles);
-            alert('Note saved successfully!');
-            setNote('');
-        }
+        setSelectedNote(null);
     };
 
-    const handleCancel = () => {
-        // Confirm exit
-        if (window.confirm("Do you want to exit the app?")) {
-            try {
-                App.exitApp();
-            } catch (e) {
-                console.log("App exit failed (likely in browser mode)", e);
-                window.close();
-            }
-        }
+    const handleDeleteNote = (id) => {
+        setNotes(notes.filter(n => n.id !== id));
+        if (selectedNote?.id === id) setSelectedNote(null);
     };
 
-    const handleDelete = (id, e) => {
-        e.stopPropagation();
-        if (window.confirm("Delete this note?")) {
-            const newFiles = savedFiles.filter(f => f.id !== id);
-            saveToStorage(newFiles);
-        }
-    };
-
-    const loadFile = (file) => {
-        setNote(file.content);
-        setViewMode(false);
-    };
+    const filteredNotes = notes.filter(n =>
+        n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        n.content.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
-        <div className="flex flex-col h-screen bg-[#fdf6e3] text-[#657b83] font-sans">
-            {/* Header */}
-            <header className="p-4 bg-[#eee8d5] border-b border-[#d3cbb8] flex items-center justify-between shadow-sm sticky top-0 z-10">
-                <h1 className="text-xl font-bold tracking-tight">Quick Notes</h1>
-                <button
-                    onClick={() => setViewMode(!viewMode)}
-                    className="text-sm text-[#cb4b16] font-semibold hover:underline"
-                >
-                    {viewMode ? "New Note" : "View Files"}
-                </button>
-            </header>
+        <div className="min-h-screen bg-[#000000] text-white font-sans selection:bg-indigo-500/30">
+            <AnimatePresence mode="wait">
+                {!selectedNote ? (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="p-6 max-w-2xl mx-auto"
+                    >
+                        <header className="flex justify-between items-center mb-8">
+                            <h1 className="text-4xl font-bold tracking-tight">Notes</h1>
+                            <div className="flex gap-4">
+                                <button className="p-2 bg-zinc-900 rounded-full text-zinc-400">
+                                    <Shield size={20} />
+                                </button>
+                            </div>
+                        </header>
 
-            {/* Main Content */}
-            <main className="flex-1 p-4 overflow-auto">
-                {viewMode ? (
-                    // File List View
-                    <div className="space-y-3">
-                        {savedFiles.length === 0 ? (
-                            <p className="text-center text-gray-400 mt-10">No saved notes yet.</p>
-                        ) : (
-                            savedFiles.map(file => (
-                                <div
-                                    key={file.id}
-                                    onClick={() => loadFile(file)}
-                                    className="p-3 bg-white rounded-lg shadow-sm border border-[#d3cbb8] hover:bg-[#fafafa] cursor-pointer flex justify-between items-center transition-colors"
+                        <div className="relative mb-6">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                            <input
+                                type="text"
+                                placeholder="Search"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-zinc-900/50 border-none rounded-2xl py-3 pl-12 pr-4 focus:ring-2 focus:ring-zinc-700 transition-all"
+                            />
+                        </div>
+
+                        <div className="space-y-3">
+                            {filteredNotes.map((note) => (
+                                <motion.div
+                                    layoutId={note.id}
+                                    key={note.id}
+                                    onClick={() => setSelectedNote(note)}
+                                    className="p-4 bg-zinc-900/40 rounded-2xl border border-white/5 hover:bg-zinc-800/50 transition-all cursor-pointer group"
                                 >
-                                    <div>
-                                        <div className="font-bold text-[#cb4b16]">{file.name}</div>
-                                        <div className="text-xs text-gray-400">{new Date(file.date).toLocaleString()}</div>
-                                        <div className="text-sm text-gray-600 truncate max-w-[200px]">{file.content.substring(0, 30)}...</div>
+                                    <div className="flex justify-between items-start mb-1">
+                                        <h3 className="font-semibold text-lg">{note.title || 'Untitled'}</h3>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id); }}
+                                            className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-red-400 transition-all"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={(e) => handleDelete(file.id, e)}
-                                        className="text-red-500 hover:text-red-700 px-2 py-1"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                ) : (
-                    // Note Editor View
-                    <textarea
-                        className="w-full h-full bg-transparent border-none resize-none focus:outline-none text-lg leading-relaxed placeholder-[#93a1a1]"
-                        placeholder="Type your note here..."
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        spellCheck="false"
-                    />
-                )}
-            </main>
+                                    <p className="text-zinc-500 line-clamp-1">{note.content || 'No additional text'}</p>
+                                    <p className="text-xs text-zinc-600 mt-2">{new Date(note.date).toLocaleDateString()}</p>
+                                </motion.div>
+                            ))}
+                        </div>
 
-            {/* Footer */}
-            {!viewMode && (
-                <footer className="p-4 bg-[#eee8d5] border-t border-[#d3cbb8] flex justify-between items-center sticky bottom-0 z-10">
-                    <button
-                        onClick={handleCancel}
-                        className="px-6 py-2 rounded-full text-[#657b83] hover:bg-[#d3cbb8] transition-colors font-medium active:scale-95 transform duration-150"
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleCreateNote}
+                            className="fixed bottom-8 right-8 w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center shadow-2xl shadow-indigo-600/40"
+                        >
+                            <Plus size={28} />
+                        </motion.button>
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="fixed inset-0 bg-black flex flex-col"
                     >
-                        Cancel
-                    </button>
-                    <div className="flex-1"></div>
-                    <button
-                        onClick={handleSave}
-                        className="px-8 py-2 rounded-full bg-[#cb4b16] text-white shadow-md hover:bg-[#bd380f] transition-colors font-bold active:scale-95 transform duration-150"
-                    >
-                        Save
-                    </button>
-                </footer>
-            )}
+                        <header className="p-4 flex justify-between items-center border-b border-zinc-900">
+                            <button onClick={() => setSelectedNote(null)} className="flex items-center text-indigo-400 font-medium">
+                                <ChevronLeft size={24} />
+                                <span>Notes</span>
+                            </button>
+                            <button
+                                onClick={() => handleSaveNote(selectedNote)}
+                                className="px-4 py-2 bg-zinc-900 rounded-xl text-white font-semibold hover:bg-zinc-800"
+                            >
+                                Done
+                            </button>
+                        </header>
+                        <main className="flex-1 p-6 flex flex-col">
+                            <input
+                                type="text"
+                                placeholder="Title"
+                                value={selectedNote.title}
+                                onChange={(e) => setSelectedNote({ ...selectedNote, title: e.target.value })}
+                                className="text-3xl font-bold bg-transparent border-none focus:ring-0 mb-4 placeholder:text-zinc-700"
+                            />
+                            <textarea
+                                placeholder="Start writing..."
+                                value={selectedNote.content}
+                                onChange={(e) => setSelectedNote({ ...selectedNote, content: e.target.value })}
+                                className="flex-1 bg-transparent border-none focus:ring-0 text-lg resize-none placeholder:text-zinc-700"
+                            />
+                        </main>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
 
 export default NotesDisguise;
+

@@ -1,15 +1,21 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/userModel');
+const EmailVerificationToken = require('../models/verificationTokenModel');
+const Friendship = require('../models/friendshipModel');
+const Vault = require('../models/vaultModel');
 const generateToken = require('../utils/generateToken');
+const sendEmail = require('../utils/sendEmail');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+
 
 // @desc    Register a new user
 // @route   POST /api/users
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-    const { name, email, password, username } = req.body;
+    const { email, password, username, triggerCode } = req.body;
 
-    if (!name || !email || !password || !username) {
+    if (!email || !password || !username || !triggerCode) {
         res.status(400);
         throw new Error('Please fill all fields');
     }
@@ -22,28 +28,55 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new Error('User or Username already exists');
     }
 
+    // Create user but NOT verified
     const user = await User.create({
-        name,
         email,
         password,
         username,
+        trigger_hash: triggerCode,
+        is_verified: false,
     });
 
     if (user) {
-        res.status(201).json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            username: user.username,
-            vaultPassword: user.vaultPassword,
-            customCode: user.customCode,
-            token: generateToken(user._id),
+        // Generate verification token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+
+        await EmailVerificationToken.create({
+            user_id: user._id,
+            hashed_token: hashedToken,
+            expires_at: Date.now() + 30 * 60 * 1000, // 30 minutes
         });
+
+        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+
+        const message = `
+            <h1>Email Verification</h1>
+            <p>Please verify your email by clicking the link below:</p>
+            <a href="${verificationUrl}" clicktracking=off>${verificationUrl}</a>
+        `;
+
+        try {
+            await sendEmail({
+                email: user.email,
+                subject: 'Verify your Antigravity Chat account',
+                html: message,
+            });
+
+            res.status(201).json({
+                message: 'Registration successful. Please check your email to verify your account.',
+            });
+        } catch (error) {
+            console.error('Email send error:', error);
+            res.status(500);
+            throw new Error('Email could not be sent. Please try again later.');
+        }
     } else {
         res.status(400);
         throw new Error('Invalid user data');
     }
 });
+
 
 // @desc    Auth user & get token
 // @route   POST /api/users/login
@@ -54,13 +87,16 @@ const authUser = asyncHandler(async (req, res) => {
     const user = await User.findOne({ email });
 
     if (user && (await user.matchPassword(password))) {
+        if (!user.is_verified) {
+            res.status(401);
+            throw new Error('Please verify your email first');
+        }
+
         res.json({
             _id: user._id,
-            name: user.name,
             email: user.email,
             username: user.username,
-            vaultPassword: user.vaultPassword,
-            customCode: user.customCode,
+            public_key: user.public_key,
             token: generateToken(user._id),
         });
     } else {
@@ -68,6 +104,88 @@ const authUser = asyncHandler(async (req, res) => {
         throw new Error('Invalid email or password');
     }
 });
+
+// @desc    Verify Email
+// @route   POST /api/users/verify-email
+// @access  Public
+const verifyEmail = asyncHandler(async (req, res) => {
+    const { token } = req.body;
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const verificationToken = await EmailVerificationToken.findOne({
+        hashed_token: hashedToken,
+        expires_at: { $gt: Date.now() },
+        used: false,
+    });
+
+    if (!verificationToken) {
+        res.status(400);
+        throw new Error('Invalid or expired token');
+    }
+
+    const user = await User.findById(verificationToken.user_id);
+
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    user.is_verified = true;
+    await user.save();
+
+    verificationToken.used = true;
+    await verificationToken.save();
+
+    res.json({ message: 'Email verified successfully' });
+});
+
+// @desc    Resend Verification Email
+// @route   POST /api/users/resend-verification
+// @access  Public
+const resendVerificationEmail = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    if (user.is_verified) {
+        res.status(400);
+        throw new Error('Email is already verified');
+    }
+
+    // Rate limiting logic could be added here or via middleware
+    // For now, generate new token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+
+    await EmailVerificationToken.create({
+        user_id: user._id,
+        hashed_token: hashedToken,
+        expires_at: Date.now() + 3 * 60 * 1000, // 30 minutes
+    });
+
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+
+    const message = `
+        <h1>Email Verification</h1>
+        <p>Please verify your email by clicking the link below:</p>
+        <a href="${verificationUrl}" clicktracking=off>${verificationUrl}</a>
+    `;
+
+    await sendEmail({
+        email: user.email,
+        subject: 'Verify your Antigravity Chat account',
+        html: message,
+    });
+
+    res.json({ message: 'Verification email sent' });
+});
+
 
 // @desc    Verify user for password reset (email only)
 // @route   POST /api/users/forgot-password-verify
@@ -247,10 +365,29 @@ const respondToFriendRequest = asyncHandler(async (req, res) => {
             sender.friends.push(user._id);
         }
 
+        // --- NEW: Create Vault and Friendship ---
+        // Generate a random vault encryption key (this will be encrypted on frontend before being sent here, 
+        // OR we can generate it here and the user will encrypt it with their vault password later? 
+        // Actually, Step 3.1 says "encrypted_vault_key". 
+        // For now, we'll create the Vault object and the Friendship. 
+        // The frontend will be responsible for setting the encrypted_vault_key upon first unlock or at creation.
+
+        const vault = await Vault.create({
+            encrypted_vault_key: 'PENDING', // Will be set by frontend
+        });
+
+        await Friendship.create({
+            user1: user._id,
+            user2: senderId,
+            vault_id: vault._id,
+        });
+        // --- END NEW ---
+
         await sender.save();
         await user.save();
         res.json({ message: 'Friend request accepted' });
     } else {
+
         await sender.save();
         await user.save();
         res.json({ message: 'Friend request rejected' });
@@ -306,15 +443,30 @@ const removeFriend = asyncHandler(async (req, res) => {
     });
     console.log(`[Chat] Deleted all messages between ${user._id} and ${friend._id}`);
 
-    // 3. Identify and Wipe Cloudinary Vault
-    const vaultId = [user._id.toString(), friend._id.toString()].sort().join('_');
-    const wipeResult = await deleteVault(vaultId);
+    // 3. Identify and Wipe Cloudinary Vault & DB Records
+    const friendship = await Friendship.findOne({
+        $or: [
+            { user1: user._id, user2: friend._id },
+            { user1: friend._id, user2: user._id }
+        ]
+    });
+
+    let wipeResult = { success: false };
+    if (friendship) {
+        const vaultId = friendship.vault_id;
+        wipeResult = await deleteVault(vaultId);
+
+        // Delete Friendship and Vault records
+        await Vault.findByIdAndDelete(vaultId);
+        await Friendship.findByIdAndDelete(friendship._id);
+    }
 
     res.json({
         message: 'Friend removed, chat history deleted, and vault wiped',
-        vaultCleanup: wipeResult.success ? 'Success' : 'Failed (may not have existed)'
+        vaultCleanup: wipeResult.success ? 'Success' : 'Failed or not found'
     });
 });
+
 
 module.exports = {
     registerUser,
