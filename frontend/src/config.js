@@ -1,5 +1,5 @@
 // 1. For Production (Render)
-export const API_BASE_URL = "https://mychat-mw9r.onrender.com";
+export const API_BASE_URL = "https://mychatend.onrender.com";
 
 // 2. For Local Development (PC Only)
 // export const API_BASE_URL = "http://localhost:5000";
