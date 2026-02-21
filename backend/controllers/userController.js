@@ -471,6 +471,8 @@ const removeFriend = asyncHandler(async (req, res) => {
 module.exports = {
     registerUser,
     authUser,
+    verifyEmail,
+    resendVerificationEmail,
     searchUsers,
     verifyForgotPassword,
     resetPassword,
