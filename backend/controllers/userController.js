@@ -39,6 +39,15 @@ const registerUser = asyncHandler(async (req, res) => {
     });
 
     if (user) {
+        // If SMTP is NOT configured, verify user automatically for demo/dev purposes
+        if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
+            user.is_verified = true;
+            await user.save();
+            return res.status(201).json({
+                message: 'Identity authorized automatically (SMTP bypass). Please log in.',
+            });
+        }
+
         // Generate verification token
         const verificationToken = crypto.randomBytes(32).toString('hex');
         const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
@@ -49,7 +58,7 @@ const registerUser = asyncHandler(async (req, res) => {
             expires_at: Date.now() + 30 * 60 * 1000, // 30 minutes
         });
 
-        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+        const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}`;
 
         const message = `
             <h1>Email Verification</h1>
@@ -69,8 +78,10 @@ const registerUser = asyncHandler(async (req, res) => {
             });
         } catch (error) {
             console.error('Email send error:', error);
+            // If email fails, delete the "orphaned" unverified user so they can try again with same email/username
+            await User.findByIdAndDelete(user._id);
             res.status(500);
-            throw new Error('Email could not be sent. Please try again later.');
+            throw new Error('Email verification failed to send. Please ensure your identity signal (email) is correct or try again later.');
         }
     } else {
         res.status(400);

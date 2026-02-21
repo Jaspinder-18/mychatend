@@ -15,3 +15,17 @@ services:
         fromEnvVar: JWT_SECRET
       - key: PORT
         value: 10000
+      - key: CLOUDINARY_CLOUD_NAME
+        fromEnvVar: CLOUDINARY_CLOUD_NAME
+      - key: CLOUDINARY_API_KEY
+        fromEnvVar: CLOUDINARY_API_KEY
+      - key: CLOUDINARY_API_SECRET
+        fromEnvVar: CLOUDINARY_API_SECRET
+      - key: SMTP_HOST
+        fromEnvVar: SMTP_HOST
+      - key: SMTP_PORT
+        fromEnvVar: SMTP_PORT
+      - key: SMTP_USER
+        fromEnvVar: SMTP_USER
+      - key: SMTP_PASS
+        fromEnvVar: SMTP_PASS
