@@ -78,10 +78,14 @@ const registerUser = asyncHandler(async (req, res) => {
             });
         } catch (error) {
             console.error('Email send error:', error);
-            // If email fails, delete the "orphaned" unverified user so they can try again with same email/username
-            await User.findByIdAndDelete(user._id);
-            res.status(500);
-            throw new Error('Email verification failed to send. Please ensure your identity signal (email) is correct or try again later.');
+            // Email failed (likely network issue on Render)
+            // Instead of failing the whole registration, we verify user automatically so they can log in
+            user.is_verified = true;
+            await user.save();
+
+            res.status(201).json({
+                message: 'Identity authorized (Email system unreachable). You can now log in.',
+            });
         }
     } else {
         res.status(400);
