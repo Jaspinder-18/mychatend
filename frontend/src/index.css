@@ -87,7 +87,7 @@
 
   /* ── Buttons ── */
   .btn-stealth {
-    @apply px-6 py-4 bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-2xl font-semibold hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none;
+    @apply px-6 py-4 bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-2xl font-semibold hover:shadow-[0_0_20px_rgba(99, 102, 241, 0.4)] hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none;
   }
 
   .btn-ghost {
@@ -154,6 +154,36 @@
 
 .animate-shake {
   animation: shake 0.3s ease-in-out 2;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out forwards;
 }
 
 /* ── Notes App Disguise Specifics ── */
