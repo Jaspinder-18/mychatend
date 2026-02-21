@@ -13,7 +13,7 @@ const crypto = require('crypto');
 // @route   POST /api/users
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-    const { email, password, username, triggerCode } = req.body;
+    const { email, password, username, triggerCode, public_key } = req.body;
 
     if (!email || !password || !username || !triggerCode) {
         res.status(400);
@@ -34,6 +34,7 @@ const registerUser = asyncHandler(async (req, res) => {
         password,
         username,
         trigger_hash: triggerCode,
+        public_key,
         is_verified: false,
     });
 
