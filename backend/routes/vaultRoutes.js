@@ -6,11 +6,13 @@ const {
     reportFailedAttempt,
     resetAttempts,
     updateVaultKey,
+    getVaultMedia,
     deleteVaultMedia,
     uploadMedia,
     upload
 } = require('../controllers/vaultController');
 
+router.get('/', protect, getVaultMedia);
 router.get('/details', protect, getVaultDetails);
 router.post('/fail', protect, reportFailedAttempt);
 router.post('/reset', protect, resetAttempts);

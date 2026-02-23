@@ -7,8 +7,10 @@ const User = require('../models/userModel');
 // @access  Private
 const sendMessage = asyncHandler(async (req, res) => {
     const { chatId, encrypted_message, duration } = req.body; // duration in hours
+    console.log(`[Chat] Incoming message from ${req.user._id} to ${chatId}`);
 
     if (!chatId || !encrypted_message) {
+        console.log("[Chat] Validation Failed: Missing chatId or encrypted_message");
         res.status(400);
         throw new Error("Invalid data passed into request");
     }
@@ -16,7 +18,9 @@ const sendMessage = asyncHandler(async (req, res) => {
     // Check if friends
     const sender = await User.findById(req.user._id);
     const isFriend = sender.friends.some(friend => friend.toString() === chatId);
+
     if (!isFriend) {
+        console.log(`[Chat] Security Denied: ${req.user._id} tried to message ${chatId} but they are not linked in friends array.`);
         res.status(403);
         return res.json({ message: 'You can only chat with friends' });
     }

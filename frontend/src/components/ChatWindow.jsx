@@ -99,7 +99,7 @@ const ChatWindow = ({
 
             const { data } = await axios.post(`${API_BASE_URL}/api/chat`, {
                 encrypted_message: encryptedPayload,
-                recipientId: selectedChat._id,
+                chatId: selectedChat._id,
                 duration: 0, // 0 means no self-destruct for now
             }, config);
 
@@ -108,7 +108,17 @@ const ChatWindow = ({
             }
             setMessages((prev) => [...prev, data]);
         } catch (error) {
-            toast.error("Failed to transmit secure packet.");
+            console.error("Detailed Transmission Error:", error);
+            const errorResponseMsg = error.response?.data?.message;
+            const errorMsg = errorResponseMsg || error.message || "Failed to transmit secure packet.";
+
+            // Helpful tip for common local testing issue
+            if (errorMsg.includes("SubtleCrypto") || errorMsg.includes("crypto.subtle")) {
+                toast.error("Security Error: RSA Encryption requires a Secure Context (HTTPS or localhost). Are you using an IP address?");
+            } else {
+                toast.error(`Transmission Error: ${errorMsg}`);
+            }
+
             setNewMessage(currentMsg);
         }
     };
